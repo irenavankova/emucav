@@ -6,6 +6,7 @@ import numpy # for arrays!
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from scipy.interpolate import griddata
+from scipy.interpolate import interp1d
 
 opt_save = 0
 
@@ -14,115 +15,121 @@ fdir = '/Users/irenavankova/Library/CloudStorage/GoogleDrive-irena.vanek@gmail.c
 ds = xarray.open_dataset(f'{fdir}/timeSeriesStatsMonthly.0002-12-01.nc')
 ds.load()
 T = np.squeeze(ds.timeMonthly_avg_activeTracers_temperature.data)
+S = np.squeeze(ds.timeMonthly_avg_activeTracers_salinity.data)
+H = np.squeeze(ds.timeMonthly_avg_layerThickness.data)
+ssh = np.squeeze(ds.timeMonthly_avg_ssh)
 
 dsMesh = xarray.open_dataset(f'{fdir}/restart.0003-01-01_00.00.00.nc')
 dsMesh.load()
 xCell = np.squeeze(dsMesh.xCell.data)
 yCell = np.squeeze(dsMesh.yCell.data)
 
-xmax = 650*1000
+target_x = 700*1000
 ymin = 0*1000
 ymax = 80*1000
+zmin = -700
+zmax = 0
+dz = 20
 resfac = 5*4
 
-target_x = xmax
 y = np.linspace(ymin, ymax, 4*resfac)
-x_grid, y_grid = np.meshgrid(x, y)
+z = np.arange(zmin, zmax, dz)
+y_grid, z_grid = np.meshgrid(y,z)
 
 # Only use points within a small 'epsilon' of target_x
-buffer = (xCell.max() - xCell.min()) * 0.05
+buffer = 4000
 mask = (xCell > target_x - buffer) & (xCell < target_x + buffer)
+print(yCell[mask].shape)
 
-slice_output = np.zeros((len(z_bins), len(y_bins)))
+nv = ds.dims['nVertLevels']
+l = np.arange(0, nv, 1)
+
+data_interp = np.zeros((nv, len(y)))
+data_interp_y = np.zeros((nv, len(y)))
+data_interp_H = np.zeros((nv, len(y)))
 
 for k in range(ds.dims['nVertLevels']):
     level_data = T[mask, k]
-    level_y = y[mask]
+    level_H = H[mask, k]
+    level_y = yCell[mask]
+    level_ssh = ssh[mask]
 
-    # Interpolate 1D (at constant X) onto our Y centers
-    interp_y = griddata(level_y, level_data, y_bins, method='linear')
+    # 2. Use square brackets [] for indexing
+    # 3. Use : alone to select the full dimension
+    data_interp[k, :] = griddata(level_y, level_data, y, method='linear')
+    data_interp_H[k, :] = griddata(level_y, level_H, y, method='linear')
+    data_interp_y[k, :] = y
 
+    if k == 1:
+        ssh_interp_H = griddata(level_y, level_ssh, y, method='linear')
 
+data_interp_z = ssh_interp_H - np.nancumsum(data_interp_H, axis=0)
 
-pts_Cell = np.column_stack((xCell, yCell))
+print(data_interp_y.shape)
+print(data_interp_z.shape)
+print(y.shape)
+print(l.shape)
 
-pts_grid = np.column_stack((x_grid.ravel(), y_grid.ravel()))
+# Second step
+final_data_interp = np.full(y_grid.shape, np.nan)
 
-sgr_grid = griddata(
-    pts_Cell,          # Source coordinates (N, 2)
-    sgr,         # Source values (N,)
-    pts_grid,   # Target coordinates (M, 2)
-    method='linear',  # Use 'linear' for bilinear interpolation
-    fill_value=0.0
-)
+# Loop through each horizontal (y) location
+for i in range(len(y)):
+    # Get the vertical column of data and its corresponding irregular z-coordinates
+    # We use data_interp[::-1, i] if your z-coordinates need to be strictly increasing
+    z_column = data_interp_z[:, i]
+    val_column = data_interp[:, i]
 
-FM_grid = griddata(
-    pts_Cell,          # Source coordinates (N, 2)
-    FloatingMask,         # Source values (N,)
-    pts_grid,   # Target coordinates (M, 2)
-    method='linear',  # Use 'linear' for bilinear interpolation
-    fill_value=0.0
-)
+    # Remove NaNs to avoid interpolation errors
+    mask_valid = ~np.isnan(z_column) & ~np.isnan(val_column)
 
-LI_grid = griddata(
-    pts_Cell,          # Source coordinates (N, 2)
-    landIceMask,         # Source values (N,)
-    pts_grid,   # Target coordinates (M, 2)
-    method='linear',  # Use 'linear' for bilinear interpolation
-    fill_value=0.0
-)
+    if np.any(mask_valid):
+        # Create the 1D interpolation function for this specific column
+        # bounds_error=False and fill_value=np.nan handles points outside the model range
+        f_interp = interp1d(
+            z_column[mask_valid],
+            val_column[mask_valid],
+            kind='linear',
+            bounds_error=False,
+            fill_value=np.nan
+        )
 
-# Reshape the interpolated data to match the 2D grid shape
-sgr_grid = sgr_grid.reshape(y_grid.shape)
-FM_grid = FM_grid.reshape(y_grid.shape)
-LI_grid = LI_grid.reshape(y_grid.shape)
-
-FM_grid[FM_grid < 0.9999] = 0
-FM_grid[FM_grid > 0] = 1
-FM_grid[FM_grid < 1] = np.NaN
-sgr_grid = sgr_grid*FM_grid*LI_grid
-
-print(np.shape(sgr_grid))
-print(np.shape(x_grid))
-
-sum_1d = np.nansum(sgr*areaCell)
-print(f"Sum of the interpolated 1D field: {sum_1d}")
-sum_2d = np.nansum(sgr_grid)*(x[2]-x[1])*(y[2]-y[1])
-print(f"Sum of the interpolated 2D field: {sum_2d}")
-
-sgr_grid = sgr_grid*sum_1d/sum_2d
-
-sum_2d = np.nansum(sgr_grid)*(x[2]-x[1])*(y[2]-y[1])
-print(f"Sum of the corrected 2D field: {sum_2d}")
-
+        # Interpolate onto the regular z values for this column
+        final_data_interp[:, i] = f_interp(z)
 
 # =============================================================================
 # Optional: Visualize the original and interpolated data
 # =============================================================================
 # Plot the original 1D data (if coordinates are 1D)
 
-prop_1D = sgr; prop_grid = sgr_grid
+#prop_1D = sgr;
+prop_grid = data_interp
 #prop_1D = FloatingMask; prop_grid = FM_grid
 
-v_min = np.nanmin([np.nanmin(prop_1D), np.nanmin(prop_grid)])
-v_max = np.nanmax([np.nanmax(prop_1D), np.nanmax(prop_grid)])
+#v_min = np.nanmin([np.nanmin(prop_1D), np.nanmin(prop_grid)])
+#v_max = np.nanmax([np.nanmax(prop_1D), np.nanmax(prop_grid)])
 
 plt.figure(figsize=(12, 5))
-plt.subplot(1, 2, 1)
-plt.scatter(xCell, yCell, c=prop_1D, vmin=v_min, vmax=v_max, cmap='hot_r')
-plt.colorbar(label='Value')
-plt.title('Original 1D Data')
-plt.xlim([xmin, xmax])
 
 # Plot the interpolated 2D data
-plt.subplot(1, 2, 2)
-plt.pcolormesh(x_grid, y_grid, prop_grid, vmin=v_min, vmax=v_max, cmap='hot_r')
+plt.subplot(1, 2, 1)
+plt.pcolormesh(y, -l, prop_grid, cmap='hot_r', shading='nearest')
 plt.colorbar(label='Value')
-plt.title('Interpolated 2D Data')
-plt.xlim([xmin, xmax])
+plt.title('Part 1')
+plt.xlim([ymin, ymax])
+
+plt.subplot(1, 2, 2)
+plt.pcolormesh(y_grid, z_grid, final_data_interp, cmap='hot_r', shading='nearest')
+plt.colorbar(label='Value')
+plt.title('Part 2')
+plt.xlim([ymin, ymax])
+
 
 plt.tight_layout()
 
 #plt.savefig('interpolation_comparison.png')
 plt.show()
+
+
+
 
