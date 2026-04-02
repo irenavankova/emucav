@@ -4,13 +4,13 @@ import xarray as xr
 import matplotlib.pyplot as plt
 
 
-fdir = '/Users/irenavankova/Library/CloudStorage/GoogleDrive-irena.vanek@gmail.com/My Drive/Research/LANL/SGR/idealized/sg_pull_w_fraz_yesC/rd/rd_112E'
+fdir = '/Users/irenavankova/Library/CloudStorage/GoogleDrive-irena.vanek@gmail.com/My Drive/Research/LANL/SGR/idealized/sg_pull_w_fraz_yesC/rd/rd_112B'
 
 ds = xr.open_dataset(f'{fdir}/timeSeriesStatsMonthly.0002-12-01.nc')
 ds.load()
 sgr = np.squeeze(ds.timeMonthly_avg_subglacialRunoffFlux.data)
 
-dsMesh = xr.open_dataset(f'{fdir}/restart.0003-01-01_00.00.00.nc')
+dsMesh = xarray.open_dataset(f'{fdir}/init.nc')
 dsMesh.load()
 landIceDraft = np.squeeze(dsMesh.landIceDraft.data)
 yCell = np.squeeze(dsMesh.yCell.data)

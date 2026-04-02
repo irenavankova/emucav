@@ -9,23 +9,35 @@ from scipy.interpolate import griddata
 
 opt_save = 0
 
-fdir = '/Users/irenavankova/Library/CloudStorage/GoogleDrive-irena.vanek@gmail.com/My Drive/Research/LANL/SGR/idealized/sg_pull_w_fraz_yesC/rd/rd_142B'
+fdir = '/Users/irenavankova/Library/CloudStorage/GoogleDrive-irena.vanek@gmail.com/My Drive/Research/LANL/SGR/idealized/sg_pull_w_fraz_yesC/rd/rd_132B'
 
 ds = xarray.open_dataset(f'{fdir}/timeSeriesStatsMonthly.0002-12-01.nc')
 ds.load()
-#sgr = np.squeeze(ds.timeMonthly_avg_subglacialRunoffFlux.data)
-#sgr = np.squeeze(ds.timeMonthly_avg_landIceFreshwaterFluxTotal.data)
-#sgr = np.squeeze(ds.timeMonthly_avg_landIceFrictionVelocity.data)
-#sgr = np.squeeze(ds.timeMonthly_avg_landIceBoundaryLayerTracers_landIceBoundaryLayerTemperature.data)
-sgr = np.squeeze(ds.timeMonthly_avg_landIceBoundaryLayerTracers_landIceBoundaryLayerSalinity.data)
 
-dsMesh = xarray.open_dataset(f'{fdir}/restart.0003-01-01_00.00.00.nc')
+#lifw = np.squeeze(ds.timeMonthly_avg_landIceFreshwaterFluxTotal.data)
+ustar = np.squeeze(ds.timeMonthly_avg_landIceFrictionVelocity.data)
+#Tbl = np.squeeze(ds.timeMonthly_avg_landIceBoundaryLayerTracers_landIceBoundaryLayerTemperature.data)
+#Sbl = np.squeeze(ds.timeMonthly_avg_landIceBoundaryLayerTracers_landIceBoundaryLayerSalinity.data)
+T = ds['timeMonthly_avg_velocityX.data']
+
+dsMesh = xarray.open_dataset(f'{fdir}/init.nc')
+#dsMesh = xarray.open_dataset(f'{fdir}/restart.0003-01-01_00.00.00.nc')
 dsMesh.load()
 areaCell = np.squeeze(dsMesh.areaCell.data)
 FloatingMask = np.squeeze(dsMesh.landIceFloatingMask.data)
 landIceMask = np.squeeze(dsMesh.landIceMask.data)
 xCell = np.squeeze(dsMesh.xCell.data)
 yCell = np.squeeze(dsMesh.yCell.data)
+
+max_level = dsMesh['maxLevelCell'] - 1  # Subtract 1 if your file uses 1-based indexing
+#max_level = dsMesh['minLevelCell']  # Subtract 1 if your file uses 1-based indexing
+Tbot = np.squeeze(T.isel(nVertLevels=max_level))
+
+sgr = Tbot
+
+# Set the values in sgr to 0 where the mask is True
+mask = ((yCell > 76000) & (yCell < 78000) & (xCell > 510000) & (xCell < 520000)) | (yCell > 77000) | (yCell < 4000) | ((yCell < 9000) & (xCell < 520000))
+sgr[mask] = np.NaN
 
 FloatingMask = FloatingMask.astype(float)
 FloatingMask[FloatingMask < 1] = np.NaN
@@ -34,14 +46,15 @@ landIceMask[landIceMask < 1] = np.NaN
 
 sgr = sgr*landIceMask*FloatingMask
 
-xmin = 450*1000
-xmax = 650*1000
-ymin = 0*1000
-ymax = 80*1000
-resfac = 5*4
+xmin = 459*1000
+xmax = 639*1000
+ymin = 5*1000
+ymax = 75*1000
+dx = 2000
+dy = dx
 
-x = np.linspace(xmin, xmax, 10*resfac)
-y = np.linspace(ymin, ymax, 4*resfac)
+x = np.arange(xmin, xmax+dx, dx)
+y = np.arange(ymin, ymax+dy, dy)
 x_grid, y_grid = np.meshgrid(x, y)
 
 pts_Cell = np.column_stack((xCell, yCell))
@@ -61,7 +74,7 @@ FM_grid = griddata(
     FloatingMask,         # Source values (N,)
     pts_grid,   # Target coordinates (M, 2)
     method='linear',  # Use 'linear' for bilinear interpolation
-    fill_value=0.0
+    fill_value=np.NaN
 )
 
 LI_grid = griddata(
@@ -69,7 +82,7 @@ LI_grid = griddata(
     landIceMask,         # Source values (N,)
     pts_grid,   # Target coordinates (M, 2)
     method='linear',  # Use 'linear' for bilinear interpolation
-    fill_value=0.0
+    fill_value=np.NaN
 )
 
 # Reshape the interpolated data to match the 2D grid shape

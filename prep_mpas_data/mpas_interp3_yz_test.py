@@ -10,21 +10,24 @@ from scipy.interpolate import interp1d
 
 opt_save = 0
 
-fdir = '/Users/irenavankova/Library/CloudStorage/GoogleDrive-irena.vanek@gmail.com/My Drive/Research/LANL/SGR/idealized/sg_pull_w_fraz_yesC/rd/rd_142N'
+fdir = '/Users/irenavankova/Library/CloudStorage/GoogleDrive-irena.vanek@gmail.com/My Drive/Research/LANL/SGR/idealized/sg_pull_w_fraz_yesC/rd/rd_112B'
 
 ds = xarray.open_dataset(f'{fdir}/timeSeriesStatsMonthly.0002-12-01.nc')
 ds.load()
+#timeMonthly_avg_velocityX
+#timeMonthly_avg_activeTracers_temperature
 T = np.squeeze(ds.timeMonthly_avg_activeTracers_temperature.data)
 S = np.squeeze(ds.timeMonthly_avg_activeTracers_salinity.data)
 H = np.squeeze(ds.timeMonthly_avg_layerThickness.data)
 ssh = np.squeeze(ds.timeMonthly_avg_ssh)
 
-dsMesh = xarray.open_dataset(f'{fdir}/restart.0003-01-01_00.00.00.nc')
+dsMesh = xarray.open_dataset(f'{fdir}/init.nc')
 dsMesh.load()
 xCell = np.squeeze(dsMesh.xCell.data)
 yCell = np.squeeze(dsMesh.yCell.data)
 
-target_x = 700*1000
+#target_x = 600*1000
+target_x = xCell.max()-2000
 ymin = 0*1000
 ymax = 80*1000
 zmin = -700
@@ -69,6 +72,7 @@ print(data_interp_y.shape)
 print(data_interp_z.shape)
 print(y.shape)
 print(l.shape)
+print(xCell.max())
 
 # Second step
 final_data_interp = np.full(y_grid.shape, np.nan)
