@@ -4,13 +4,13 @@ import xarray as xr
 import matplotlib.pyplot as plt
 
 
-fdir = '/Users/irenavankova/Library/CloudStorage/GoogleDrive-irena.vanek@gmail.com/My Drive/Research/LANL/SGR/idealized/sg_pull_w_fraz_yesC/rd/rd_112B'
+fdir = '/Users/irenavankova/Library/CloudStorage/GoogleDrive-irena.vanek@gmail.com/My Drive/Research/LANL/SGR/idealized/sg_pull_w_fraz_yesC/rd/rd_132B'
 
 ds = xr.open_dataset(f'{fdir}/timeSeriesStatsMonthly.0002-12-01.nc')
 ds.load()
 sgr = np.squeeze(ds.timeMonthly_avg_subglacialRunoffFlux.data)
 
-dsMesh = xarray.open_dataset(f'{fdir}/init.nc')
+dsMesh = xr.open_dataset(f'{fdir}/init.nc')
 dsMesh.load()
 landIceDraft = np.squeeze(dsMesh.landIceDraft.data)
 yCell = np.squeeze(dsMesh.yCell.data)
@@ -78,8 +78,16 @@ sum_2d = np.nansum(projected_runoff)*(y_centers[2]-y_centers[1])*(z_centers[2]-z
 print(f"Sum of the corrected 2D field: {sum_2d/fac}")
 
 #
+
 plt.figure(figsize=(12, 5))
-plt.subplot(1, 1, 1)
+plt.subplot(1, 2, 1)
+plt.scatter(yCell, landIceDraft, c=sgr, cmap='hot_r')
+plt.colorbar(label='Value')
+plt.title('Original Data'); plt.ylabel('y (km)'); plt.xlabel('x (km)')
+
+plt.subplot(1, 2, 2)
+#plt.figure(figsize=(12, 5))
+#plt.subplot(1, 1, 1)
 pcm = plt.pcolormesh(y_centers, z_centers, projected_runoff.T, cmap='hot_r')
 plt.colorbar(label='Value')
 plt.title('projected_runoff')

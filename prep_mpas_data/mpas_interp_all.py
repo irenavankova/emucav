@@ -134,14 +134,41 @@ def interpolate_yz(T, H, yCell, ssh, mask, y_target, z_target):
 
     return final_data_interp, data_interp
 
+def project_draft_to_yz(runoff_flux, y_cell, ice_draft, y_axis, z_axis):
+    """
+    Projects runoff flux onto a user-defined structured grid.
+
+    Parameters:
+    runoff_flux: np.array (1, nCells) or (nCells,)
+    y_cell:      np.array (nCells)
+    ice_draft:   np.array (nCells)
+    y_axis:      np.array (1D array of desired Y bin edges)
+    z_axis:      np.array (1D array of desired Z bin edges)
+    """
+
+    # Remove the Time dimension (size 1)
+    s_data = np.squeeze(runoff_flux)
+
+    # The 'bins' argument accepts a list of the two edge arrays [y_edges, z_edges]
+    projected_flux, _, _ = np.histogram2d(
+        y_cell,
+        ice_draft,
+        bins=[y_axis, z_axis],
+        weights=s_data
+    )
+
+    return projected_flux
+
+
 #--------------------------------------------------------------------------------------------------------
 # Load data
-fdir = '/Users/irenavankova/Library/CloudStorage/GoogleDrive-irena.vanek@gmail.com/My Drive/Research/LANL/SGR/idealized/sg_pull_w_fraz_yesC/rd/rd_112B'
+fdir = '/Users/irenavankova/Library/CloudStorage/GoogleDrive-irena.vanek@gmail.com/My Drive/Research/LANL/SGR/idealized/sg_pull_w_fraz_yesC/rd/rd_142B'
 ds = xarray.open_dataset(f'{fdir}/timeSeriesStatsMonthly.0002-12-01.nc')
 ds.load()
 dsMesh = xarray.open_dataset(f'{fdir}/init.nc')
 dsMesh.load()
 
+# Variables for XY output
 var_map_xy_2D = {
     'lifw': ds.timeMonthly_avg_landIceFreshwaterFluxTotal,
     'ustar': ds.timeMonthly_avg_landIceFrictionVelocity,
@@ -149,6 +176,7 @@ var_map_xy_2D = {
     'Sbl': ds.timeMonthly_avg_landIceBoundaryLayerTracers_landIceBoundaryLayerSalinity
 }
 
+# Variables for YZ input
 var_map_xy_3D = {
     'Sbot': ds.timeMonthly_avg_activeTracers_salinity,
     'Tbot': ds.timeMonthly_avg_activeTracers_temperature,
@@ -163,6 +191,8 @@ var_map_yz_3D = {
 
 ssh = np.squeeze(ds.timeMonthly_avg_ssh)
 H = np.squeeze(ds.timeMonthly_avg_layerThickness.data)
+
+sgr = np.squeeze(ds.timeMonthly_avg_subglacialRunoffFlux.data)
 
 
 # Define grid for interpolation
@@ -182,6 +212,9 @@ y = np.arange(ymin, ymax + dy, dy)
 x_grid, y_grid = np.meshgrid(x, y)
 z = np.arange(zmin, zmax, dz)
 
+y_centers = np.arange(ymin-dy/2, ymax + dy + dy/2, dy)
+z_centers = np.arange(zmin-dz/2, zmax + dz/2, dz)
+
 # Dictionaries to store the processed results
 data_processed_xy = {}
 data_processed_yz = {}
@@ -189,10 +222,13 @@ data_XY = {}
 data_YZ = {}
 data_YZi1 = {}
 
-# Grid
-areaCell = np.squeeze(dsMesh.areaCell.data)
+# Masks
 FloatingMask = np.squeeze(dsMesh.landIceFloatingMask.data)
 landIceMask = np.squeeze(dsMesh.landIceMask.data)
+landIceDraft = np.squeeze(dsMesh.landIceDraft.data)
+
+# Grid
+areaCell = np.squeeze(dsMesh.areaCell.data)
 xCell = np.squeeze(dsMesh.xCell.data)
 yCell = np.squeeze(dsMesh.yCell.data)
 max_level = dsMesh['maxLevelCell'] - 1
@@ -236,8 +272,27 @@ for name, data_obj in var_map_yz_3D.items():
 for name, data_array in data_processed_yz.items():
     data_YZ[f"{name}_grid"], data_YZi1[f"{name}_grid1"] = interpolate_yz(data_array, H, yCell, ssh, mask_near, y, z)
 
-#--------------------------------------------------------------------------------------------------------
+#@@@@@@ DRAFT TO YZ
+projected_runoff = project_draft_to_yz(
+    sgr,
+    yCell,
+    landIceDraft,
+    y_centers,
+    z_centers
+)
 
+# Rescale
+fac = 1e6
+sum_1d = np.nansum(sgr*areaCell) # horizontal area
+print(f"Sum of the interpolated 1D field: {sum_1d/fac}")
+sum_2d = np.nansum(projected_runoff)*(y_centers[2]-y_centers[1])*(z_centers[2]-z_centers[1]) # vertical area
+print(f"Sum of the interpolated 2D field: {sum_2d/fac}")
+projected_runoff = projected_runoff*sum_1d/sum_2d
+sum_2d = np.nansum(projected_runoff)*(y_centers[2]-y_centers[1])*(z_centers[2]-z_centers[1])
+print(f"Sum of the corrected 2D field: {sum_2d/fac}")
+
+#--------------------------------------------------------------------------------------------------------
+m2km = 1000
 # Visualization of XY fields
 prop_1D = data_processed_xy['Ubot']; prop_grid = data_XY['Ubot_grid']
 v_min = np.nanmin([np.nanmin(prop_1D), np.nanmin(prop_grid)])
@@ -245,18 +300,18 @@ v_max = np.nanmax([np.nanmax(prop_1D), np.nanmax(prop_grid)])
 
 plt.figure(figsize=(12, 5))
 plt.subplot(1, 2, 1)
-plt.scatter(xCell, yCell, c=prop_1D, vmin=v_min, vmax=v_max, cmap='hot_r')
+plt.scatter(xCell/m2km, yCell/m2km, c=prop_1D, vmin=v_min, vmax=v_max, cmap='hot_r')
 plt.colorbar(label='Value')
-plt.title('Original 1D Data')
-plt.xlim([xmin, xmax])
-plt.ylim([ymin, ymax])
+plt.title('Original Data'); plt.ylabel('y (km)'); plt.xlabel('x (km)')
+plt.xlim(np.array([xmin, xmax]) / m2km)
+plt.ylim(np.array([ymin, ymax]) / m2km)
 
 plt.subplot(1, 2, 2)
-plt.pcolormesh(x_grid, y_grid, prop_grid, vmin=v_min, vmax=v_max, cmap='hot_r')
+plt.pcolormesh(x_grid/m2km, y_grid/m2km, prop_grid, vmin=v_min, vmax=v_max, cmap='hot_r')
 plt.colorbar(label='Value')
-plt.title('Interpolated 2D Data')
-plt.xlim([xmin, xmax])
-plt.ylim([ymin, ymax])
+plt.title('Interpolated Data'); plt.ylabel('y (km)'); plt.xlabel('x (km)')
+plt.xlim(np.array([xmin, xmax]) / m2km)
+plt.ylim(np.array([ymin, ymax]) / m2km)
 
 plt.tight_layout()
 plt.show()
@@ -271,16 +326,33 @@ plt.figure(figsize=(12, 5))
 plt.subplot(1, 2, 1)
 nv = ds.dims['nVertLevels']
 l = np.arange(0, nv, 1)
-plt.pcolormesh(y, -l, prop1, cmap='hot_r', shading='nearest')
+plt.pcolormesh(y/m2km, -l, prop1, cmap='hot_r', shading='nearest')
 plt.colorbar(label='Value')
-plt.title('Part 1')
-plt.xlim([ymin, ymax])
+plt.title('Interp levels'); plt.ylabel('level #'); plt.xlabel('y (km)')
+plt.xlim(np.array([ymin, ymax]) / m2km)
 
 plt.subplot(1, 2, 2)
-plt.pcolormesh(y, z, prop2, cmap='hot_r', shading='nearest')
+plt.pcolormesh(y/m2km, z, prop2, cmap='hot_r', shading='nearest')
 plt.colorbar(label='Value')
-plt.title('Part 2')
-plt.xlim([ymin, ymax])
+plt.title('Interp z'); plt.ylabel('z (m)'); plt.xlabel('y (km)')
+plt.xlim(np.array([ymin, ymax]) / m2km)
 plt.tight_layout()
 
+plt.show()
+
+# Visualization of YZ projection
+plt.figure(figsize=(12, 5))
+plt.subplot(1, 2, 1)
+plt.scatter(yCell/m2km, landIceDraft, c=sgr, cmap='hot_r')
+plt.colorbar(label='Value')
+plt.title('Original Data'); plt.ylabel('z (m)'); plt.xlabel('y (km)')
+plt.xlim(np.array([ymin, ymax]) / m2km)
+plt.ylim(np.array([zmin, zmax]))
+
+plt.subplot(1, 2, 2)
+pcm = plt.pcolormesh(y/m2km, z, projected_runoff.T/dx*dz, cmap='hot_r', shading='nearest')
+plt.colorbar(label='Value')
+plt.title('Projected runoff'); plt.ylabel('z (m)'); plt.xlabel('y (km)')
+plt.xlim(np.array([ymin, ymax]) / m2km)
+plt.ylim(np.array([zmin, zmax]))
 plt.show()
