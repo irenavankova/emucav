@@ -90,6 +90,7 @@ def interpolate_yz(T, H, yCell, ssh, mask, y_target, z_target):
     return final_data_interp, data_interp
 
 fdir = '/Users/irenavankova/Library/CloudStorage/GoogleDrive-irena.vanek@gmail.com/My Drive/Research/LANL/SGR/idealized/sg_pull_w_fraz_yesC/rd/rd_112B'
+#fdir = '/Users/irenavankova/Desktop/test_old'
 
 ds = xarray.open_dataset(f'{fdir}/timeSeriesStatsMonthly.0002-12-01.nc')
 ds.load()
@@ -105,7 +106,7 @@ dsMesh.load()
 xCell = np.squeeze(dsMesh.xCell.data)
 yCell = np.squeeze(dsMesh.yCell.data)
 
-target_x = 600*1000
+target_x = 700*1000 # Should be outside the cavity for older mpas outputs
 #target_x = xCell.max()-2000
 ymin = 0*1000
 ymax = 80*1000

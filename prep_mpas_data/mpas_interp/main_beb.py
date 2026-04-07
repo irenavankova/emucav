@@ -26,7 +26,7 @@ zmin, zmax = -700, 0
 dz = 20
 
 buffer = 4000
-target_x = 600*1000
+target_x = 700*1000
 #target_x = xCell.max()-2000
 m2km = 1000
 
