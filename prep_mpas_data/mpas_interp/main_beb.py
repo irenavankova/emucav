@@ -88,7 +88,11 @@ for year in range(year_init, year_end):
         ssh = np.squeeze(ds.timeMonthly_avg_ssh)
         H = np.squeeze(ds.timeMonthly_avg_layerThickness.data)
 
-        sgr = np.squeeze(ds.timeMonthly_avg_subglacialRunoffFlux.data)
+        if 'timeMonthly_avg_subglacialRunoffFlux' in ds:
+            sgr = np.squeeze(ds.timeMonthly_avg_subglacialRunoffFlux.data)
+        else:
+            # Create an array of zeros with the same shape as ssh
+            sgr = np.zeros_like(ssh)
 
         #--------------------------------------------------------------------------------------------------------
         # Dictionaries to store the processed results
