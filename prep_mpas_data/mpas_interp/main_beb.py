@@ -13,6 +13,29 @@ opt_save = 1
 filenames = ['ra', 'rb', 'rc', 'rd', 're', 'rg']
 suffixes = ['112A', '112B', '112C', '112N', '112R']
 
+year_init, year_end = 1, 3
+month_init, month_end = 1, 13
+
+# Define grid for interpolation
+xmin, xmax = 459000, 639000
+ymin, ymax = 5000, 75000
+dx, dy = 2000, 2000
+zmin, zmax = -700, 0
+dz = 20
+
+buffer = 4000
+target_x = 700 * 1000
+# target_x = xCell.max()-2000
+m2km = 1000
+
+x = np.arange(xmin, xmax + dx, dx)
+y = np.arange(ymin, ymax + dy, dy)
+x_grid, y_grid = np.meshgrid(x, y)
+z = np.arange(zmin, zmax, dz)
+
+y_centers = np.arange(ymin - dy / 2, ymax + dy + dy / 2, dy)
+z_centers = np.arange(zmin - dz / 2, zmax + dz / 2, dz)
+
 for rx in filenames:
     # Adding an optional print to show which group we are in
     print(f"--- Processing group: {rx} ---")
@@ -29,30 +52,6 @@ for rx in filenames:
         #fdir = '/lcrc/group/e3sm/ac.vankova/compass/sg_tests/sg_pull_w_fraz_yesC/ra/ra_112A/ocean/isomip_plus/planar/2km/z-star/Ocean0/simulation'
         #fdir = '/lcrc/group/e3sm/ac.xylar/mpas_isomip_plus/isomip_plus_Ocean0-2_2k_5k_Jan_2019/isomip_plus_restart_fixed/ocean/isomip_plus/2km/Ocean2/forward'
         fdir_init = fdir
-
-        year_init, year_end = 1, 21
-        month_init, month_end = 1, 13
-
-        # Define grid for interpolation
-        xmin, xmax = 459000, 639000
-        ymin, ymax = 5000, 75000
-        dx, dy = 2000, 2000
-        zmin, zmax = -700, 0
-        dz = 20
-
-        buffer = 4000
-        target_x = 700*1000
-        #target_x = xCell.max()-2000
-        m2km = 1000
-
-        x = np.arange(xmin, xmax + dx, dx)
-        y = np.arange(ymin, ymax + dy, dy)
-        x_grid, y_grid = np.meshgrid(x, y)
-        z = np.arange(zmin, zmax, dz)
-
-        y_centers = np.arange(ymin-dy/2, ymax + dy + dy/2, dy)
-        z_centers = np.arange(zmin-dz/2, zmax + dz/2, dz)
-
 
         #--------------------------------------------------------------------------------------------------------
         results_list_XY = []
