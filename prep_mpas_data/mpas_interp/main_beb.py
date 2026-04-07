@@ -10,9 +10,10 @@ from mpas_interp_in_out import apply_masks_xy, interpolate_xy, interpolate_yz, p
 opt_save = 1
 dir_fig_save = '/lcrc/group/e3sm/ac.vankova/beb/Ocean1'
 dir_nc_save = dir_fig_save
-fdir_init = '/lcrc/group/e3sm/ac.vankova/compass/sg_tests/sg_pull_w_fraz_yesC/ra/ra_112A/ocean/isomip_plus/planar/2km/z-star/Ocean0/simulation'
+#fdir_init = '/lcrc/group/e3sm/ac.vankova/compass/sg_tests/sg_pull_w_fraz_yesC/ra/ra_112A/ocean/isomip_plus/planar/2km/z-star/Ocean0/simulation'
 #fdir = '/lcrc/group/e3sm/ac.vankova/compass/sg_tests/sg_pull_w_fraz_yesC/ra/ra_112A/ocean/isomip_plus/planar/2km/z-star/Ocean0/simulation'
 fdir = '/lcrc/group/e3sm/ac.xylar/mpas_isomip_plus/isomip_plus_Ocean0-2_2k_5k_Jan_2019/isomip_plus_restart_fixed/ocean/isomip_plus/2km/Ocean1/forward'
+fdir_init = fdir
 
 year_init, year_end = 1, 21
 month_init, month_end = 1, 13
@@ -104,7 +105,6 @@ for year in range(year_init, year_end):
         data_YZi1 = {}
 
         # Masks
-        FloatingMask = np.squeeze(dsMesh.landIceFloatingMask.data)
         landIceMask = np.squeeze(dsMesh.landIceMask.data)
         landIceDraft = np.squeeze(dsMesh.landIceDraft.data)
 
@@ -129,15 +129,13 @@ for year in range(year_init, year_end):
             data_processed_xy[name] = apply_masks_xy(xCell, yCell, data_processed_xy[name])
 
         # Adjust masks
-        FloatingMask = FloatingMask.astype(float)
-        FloatingMask[FloatingMask < 1] = np.nan
         landIceMask = landIceMask.astype(float)
         landIceMask[landIceMask < 1] = np.nan
 
         # Interpolate all xy variables
         for name, data_array in data_processed_xy.items():
             data_XY[f"{name}_xy"] = interpolate_xy(
-                xCell, yCell, data_array, x_grid, y_grid, landIceMask * FloatingMask
+                xCell, yCell, data_array, x_grid, y_grid, landIceMask
             )
 
         #@@@@@@YZ
