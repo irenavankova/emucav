@@ -21,7 +21,7 @@ for rx in filenames:
         rxnum = f'{rx}_{suffix}'
         print(rxnum)
 
-        dir_fig_save = '/lcrc/group/e3sm/ac.vankova/beb/rxnum'
+        dir_fig_save = f'/lcrc/group/e3sm/ac.vankova/beb/{rxnum}'
         dir_nc_save = dir_fig_save
 
         Path(dir_fig_save).mkdir(parents=True, exist_ok=True)
