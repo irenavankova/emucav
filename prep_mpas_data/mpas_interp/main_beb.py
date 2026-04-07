@@ -10,6 +10,7 @@ from mpas_interp_in_out import apply_masks_xy, interpolate_xy, interpolate_yz, p
 opt_save = 1
 dir_fig_save = '/lcrc/group/e3sm/ac.vankova/beb/Ocean1'
 dir_nc_save = dir_fig_save
+fdir_init = '/lcrc/group/e3sm/ac.vankova/compass/sg_tests/sg_pull_w_fraz_yesC/ra/ra_112A/ocean/isomip_plus/planar/2km/z-star/Ocean0/simulation'
 #fdir = '/lcrc/group/e3sm/ac.vankova/compass/sg_tests/sg_pull_w_fraz_yesC/ra/ra_112A/ocean/isomip_plus/planar/2km/z-star/Ocean0/simulation'
 fdir = '/lcrc/group/e3sm/ac.xylar/mpas_isomip_plus/isomip_plus_Ocean0-2_2k_5k_Jan_2019/isomip_plus_restart_fixed/ocean/isomip_plus/2km/Ocean1/forward'
 
@@ -60,7 +61,7 @@ for year in range(year_init, year_end):
 
         ds = xarray.open_dataset(filename)
         ds.load()
-        dsMesh = xarray.open_dataset(f'{fdir}/init.nc')
+        dsMesh = xarray.open_dataset(f'{fdir_init}/init.nc')
         dsMesh.load()
 
 
