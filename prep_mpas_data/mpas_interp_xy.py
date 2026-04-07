@@ -53,13 +53,15 @@ def interpolate_xy(xCell, yCell, variable, x_grid, y_grid, mask=None):
 #--------------------------------------------------------------------------------------------------------
 # Load data
 fdir = '/Users/irenavankova/Library/CloudStorage/GoogleDrive-irena.vanek@gmail.com/My Drive/Research/LANL/SGR/idealized/sg_pull_w_fraz_yesC/rd/rd_112B'
+#fdir = '/Users/irenavankova/Desktop/test_old'
+
 ds = xarray.open_dataset(f'{fdir}/timeSeriesStatsMonthly.0002-12-01.nc')
 ds.load()
 dsMesh = xarray.open_dataset(f'{fdir}/init.nc')
 dsMesh.load()
 
 var_map_xy_2D = {
-    'lifw': ds.timeMonthly_avg_landIceFreshwaterFluxTotal,
+    'lifw': ds.timeMonthly_avg_landIceFreshwaterFlux,
     'ustar': ds.timeMonthly_avg_landIceFrictionVelocity,
     'Tbl': ds.timeMonthly_avg_landIceBoundaryLayerTracers_landIceBoundaryLayerTemperature,
     'Sbl': ds.timeMonthly_avg_landIceBoundaryLayerTracers_landIceBoundaryLayerSalinity
@@ -88,7 +90,7 @@ data_XY = {}
 
 # Grid
 areaCell = np.squeeze(dsMesh.areaCell.data)
-FloatingMask = np.squeeze(dsMesh.landIceFloatingMask.data)
+#FloatingMask = np.squeeze(dsMesh.landIceFloatingMask.data)
 landIceMask = np.squeeze(dsMesh.landIceMask.data)
 xCell = np.squeeze(dsMesh.xCell.data)
 yCell = np.squeeze(dsMesh.yCell.data)
@@ -108,33 +110,33 @@ for name, data_obj in var_map_xy_3D.items():
     data_processed_xy[name] = apply_masks_xy(xCell, yCell, data_processed_xy[name])
 
 # Adjust masks
-FloatingMask = FloatingMask.astype(float)
-FloatingMask[FloatingMask < 1] = np.nan
+#FloatingMask = FloatingMask.astype(float)
+#FloatingMask[FloatingMask < 1] = np.nan
 landIceMask = landIceMask.astype(float)
-landIceMask[landIceMask < 1] = np.nan
+#landIceMask[landIceMask < 1] = np.nan
 
 # Interpolate all xy variables
 for name, data_array in data_processed_xy.items():
     data_XY[f"{name}_grid"] = interpolate_xy(
-        xCell, yCell, data_array, x_grid, y_grid, landIceMask * FloatingMask
+        xCell, yCell, data_array, x_grid, y_grid, mask=None #landIceMask #* FloatingMask
     )
 
 #--------------------------------------------------------------------------------------------------------
 
 # Visualization of XY fields
-prop_1D = data_processed_xy['Ubot']; prop_grid = data_XY['Ubot_grid']
+prop_1D = data_processed_xy['Tbot']; prop_grid = data_XY['Tbot_grid']
 v_min = np.nanmin([np.nanmin(prop_1D), np.nanmin(prop_grid)])
 v_max = np.nanmax([np.nanmax(prop_1D), np.nanmax(prop_grid)])
 
-plt.figure(figsize=(12, 5))
-plt.subplot(1, 2, 1)
+plt.figure(figsize=(10, 10))
+plt.subplot(2, 1, 1)
 plt.scatter(xCell, yCell, c=prop_1D, vmin=v_min, vmax=v_max, cmap='hot_r')
 plt.colorbar(label='Value')
 plt.title('Original 1D Data')
 plt.xlim([xmin, xmax])
 plt.ylim([ymin, ymax])
 
-plt.subplot(1, 2, 2)
+plt.subplot(2, 1, 2)
 plt.pcolormesh(x_grid, y_grid, prop_grid, vmin=v_min, vmax=v_max, cmap='hot_r')
 plt.colorbar(label='Value')
 plt.title('Interpolated 2D Data')

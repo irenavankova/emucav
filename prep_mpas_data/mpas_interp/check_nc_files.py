@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # --- Configuration ---
-dir_nc_save = '/Users/irenavankova/Desktop/test'  # Update this
+dir_nc_save = '/Users/irenavankova/Desktop/Ocean1'  # Update this
 m2km = 1000.0  # Conversion factor
 # Adjust these limits based on your specific domain
 
@@ -15,9 +15,8 @@ zmin, zmax = -700, 0
 dz = 20
 
 # Load the combined datasets
-date_plot = '0002-12-01'
-ds_xy = xarray.open_dataset(f'{dir_nc_save}/output_data_xy.{date_plot}.nc')  # Update filename
-ds_yz = xarray.open_dataset(f'{dir_nc_save}/input_data_yz.{date_plot}.nc')  # Update filename
+ds_xy = xarray.open_dataset(f'{dir_nc_save}/output_data_xy.nc')  # Update filename
+ds_yz = xarray.open_dataset(f'{dir_nc_save}/input_data_yz.nc')  # Update filename
 
 # Select a specific time slice to verify (e.g., the first month)
 t_idx = 0
@@ -27,7 +26,7 @@ print(f"Verifying data for time slice: {time_label}")
 # -----------------------------------------------------------------------------
 # 1. Visualization of XY fields (Using 'Ubot_xy' as in original)
 # -----------------------------------------------------------------------------
-var_xy = 'Ubot_xy'
+var_xy = 'ustar_xy'
 data_slice_xy = ds_xy[var_xy].isel(time=t_idx)
 
 plt.figure(figsize=(8, 6))

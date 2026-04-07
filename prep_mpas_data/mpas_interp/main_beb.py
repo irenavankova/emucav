@@ -105,7 +105,7 @@ for year in range(year_init, year_end):
         data_YZi1 = {}
 
         # Masks
-        landIceMask = np.squeeze(dsMesh.landIceMask.data)
+        #landIceMask = np.squeeze(dsMesh.landIceMask.data)
         landIceDraft = np.squeeze(dsMesh.landIceDraft.data)
 
         # Grid
@@ -129,13 +129,13 @@ for year in range(year_init, year_end):
             data_processed_xy[name] = apply_masks_xy(xCell, yCell, data_processed_xy[name])
 
         # Adjust masks
-        landIceMask = landIceMask.astype(float)
-        landIceMask[landIceMask < 1] = np.nan
+        #landIceMask = landIceMask.astype(float)
+        #landIceMask[landIceMask < 1] = np.nan
 
         # Interpolate all xy variables
         for name, data_array in data_processed_xy.items():
             data_XY[f"{name}_xy"] = interpolate_xy(
-                xCell, yCell, data_array, x_grid, y_grid, landIceMask
+                xCell, yCell, data_array, x_grid, y_grid, mask = None
             )
 
         #@@@@@@YZ
@@ -206,20 +206,20 @@ for year in range(year_init, year_end):
 
         #--------------------------------------------------------------------------------------------------------
         # Visualization of XY fields
-        varxy = 'Ubot'
+        varxy = 'Tbot'
         prop_1D = data_processed_xy[f'{varxy}']; prop_grid = data_XY[f'{varxy}_xy']
         v_min = np.nanmin([np.nanmin(prop_1D), np.nanmin(prop_grid)])
         v_max = np.nanmax([np.nanmax(prop_1D), np.nanmax(prop_grid)])
 
-        plt.figure(figsize=(12, 5))
-        plt.subplot(1, 2, 1)
+        plt.figure(figsize=(10, 10))
+        plt.subplot(2, 1, 1)
         plt.scatter(xCell/m2km, yCell/m2km, c=prop_1D, vmin=v_min, vmax=v_max, cmap='hot_r')
         plt.colorbar()
         plt.title('Original Data'); plt.ylabel('y (km)'); plt.xlabel('x (km)')
         plt.xlim(np.array([xmin, xmax]) / m2km)
         plt.ylim(np.array([ymin, ymax]) / m2km)
 
-        plt.subplot(1, 2, 2)
+        plt.subplot(2, 1, 2)
         plt.pcolormesh(x_grid/m2km, y_grid/m2km, prop_grid, vmin=v_min, vmax=v_max, cmap='hot_r')
         plt.colorbar()
         plt.title('Interpolated Data'); plt.ylabel('y (km)'); plt.xlabel('x (km)')
