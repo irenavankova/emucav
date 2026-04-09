@@ -10,8 +10,13 @@ from mpas_interp_in_out import apply_masks_xy, interpolate_xy, interpolate_yz, p
 # Load data
 opt_save = 1
 
-filenames = ['ra', 'rb', 'rc', 'rd', 're', 'rg']
-suffixes = ['112A', '112B', '112C', '112N', '112R']
+#filenames = ['ra', 'rb', 'rc', 'rd', 're', 'rg']
+#suffixes = ['112A', '112B', '112C', '112N', '112R']
+filenames = ['rd']
+#suffixes = ['112D', '112E']
+#suffixes = ['122A', '122B', '122C', '122D', '122E', '122R']
+#suffixes = ['132A', '132B', '132C', '132D', '132E', '132R']
+suffixes = ['142A', '142B', '142C', '142D', '142E', '142R']
 
 year_init, year_end = 1, 3
 month_init, month_end = 1, 13
@@ -19,9 +24,10 @@ month_init, month_end = 1, 13
 # Define grid for interpolation
 xmin, xmax = 459000, 639000
 ymin, ymax = 5000, 75000
-dx, dy = 2000, 2000
+#dx, dy = 2000, 2000
 zmin, zmax = -700, 0
-dz = 20
+#dz = 20
+nx, ny, nz = 3*36, 36, 36
 
 buffer = 4000
 target_x = 700
@@ -30,13 +36,16 @@ target_x = target_x * 1000
 # target_x = xCell.max()-2000
 m2km = 1000
 
-x = np.arange(xmin, xmax + dx, dx)
-y = np.arange(ymin, ymax + dy, dy)
+x = np.linspace(xmin, xmax, nx)
+y = np.linspace(ymin, ymax, ny)
+z = np.linspace(zmin, zmax, nz)
 x_grid, y_grid = np.meshgrid(x, y)
-z = np.arange(zmin, zmax, dz)
+dx = (xmax-xmin)/nx
+dy = (ymax-ymin)/ny
+dz = (zmax-zmin)/nz
 
-y_centers = np.arange(ymin - dy / 2, ymax + dy + dy / 2, dy)
-z_centers = np.arange(zmin - dz / 2, zmax + dz / 2, dz)
+y_centers = np.arange(ymin-dy/2, ymax + dy/2, dy)
+z_centers = np.arange(zmin-dz/2, zmax + dz/2, dz)
 
 for rx in filenames:
     # Adding an optional print to show which group we are in

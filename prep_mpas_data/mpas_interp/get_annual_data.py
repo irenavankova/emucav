@@ -3,7 +3,8 @@ import os
 import xarray as xr
 
 # Path to the main folder containing subfolders
-main_folder = '/Users/irenavankova/Desktop/Ocean2/rx'
+main_folder = '/Users/irenavankova/Desktop/beb/rx'
+fnamex = 'x700'
 
 # Loop over each subfolder
 for folder_name in os.listdir(main_folder):
@@ -11,8 +12,8 @@ for folder_name in os.listdir(main_folder):
 
     # Check if it's a directory
     if os.path.isdir(folder_path):
-        xy_file = os.path.join(folder_path, 'output_data_xy.nc')
-        yz_file = os.path.join(folder_path, 'input_data_yz.nc')
+        xy_file = os.path.join(folder_path, f'output_data_xy_{fnamex}.nc')
+        yz_file = os.path.join(folder_path, f'input_data_yz_{fnamex}.nc')
 
         # Check if both files exist
         if os.path.exists(xy_file) and os.path.exists(yz_file):
@@ -32,7 +33,7 @@ for folder_name in os.listdir(main_folder):
             merged_ds = xr.merge([avg_xy, avg_yz])
 
             # Save the merged dataset to a new NetCDF file in the same folder
-            output_file = os.path.join(folder_path, 'data_annual.nc')
+            output_file = os.path.join(folder_path, f'data_annual_{fnamex}.nc')
             merged_ds.to_netcdf(output_file)
 
             # Close the datasets

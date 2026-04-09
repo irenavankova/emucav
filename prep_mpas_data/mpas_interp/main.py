@@ -18,23 +18,35 @@ month_init, month_end = 12, 13
 # Define grid for interpolation
 xmin, xmax = 459000, 639000
 ymin, ymax = 5000, 75000
-dx, dy = 2000, 2000
+#dx, dy = 2000, 2000
 zmin, zmax = -700, 0
-dz = 20
+#dz = 20
+nx, ny, nz = 3*36, 36, 36
 
 buffer = 4000
 target_x = 600*1000
 #target_x = xCell.max()-2000
 m2km = 1000
 
-x = np.arange(xmin, xmax + dx, dx)
-y = np.arange(ymin, ymax + dy, dy)
+#x = np.arange(xmin, xmax + dx, dx)
+#y = np.arange(ymin, ymax + dy, dy)
+x = np.linspace(xmin, xmax, nx)
+y = np.linspace(ymin, ymax, ny)
+z = np.linspace(zmin, zmax, nz)
 x_grid, y_grid = np.meshgrid(x, y)
-z = np.arange(zmin, zmax, dz)
+#z = np.arange(zmin, zmax, dz)
+dx = (xmax-xmin)/nx
+dy = (ymax-ymin)/ny
+dz = (zmax-zmin)/nz
 
-y_centers = np.arange(ymin-dy/2, ymax + dy + dy/2, dy)
+y_centers = np.arange(ymin-dy/2, ymax + dy/2, dy)
 z_centers = np.arange(zmin-dz/2, zmax + dz/2, dz)
 
+print(x.shape)
+print(y.shape)
+print(z.shape)
+print(y_centers.shape)
+print(z_centers.shape)
 
 #--------------------------------------------------------------------------------------------------------
 results_list_XY = []
@@ -165,6 +177,8 @@ for year in range(year_init, year_end):
         projected_runoff = projected_runoff*sum_1d/sum_2d
         sum_2d = np.nansum(projected_runoff)*(y_centers[2]-y_centers[1])*(z_centers[2]-z_centers[1])
         print(f"Sum of the corrected 2D field: {sum_2d/fac}")
+
+        print(projected_runoff.shape)
 
         data_YZ['runoff_yz'] = projected_runoff.T
 

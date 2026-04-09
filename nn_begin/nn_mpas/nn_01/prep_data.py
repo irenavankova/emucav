@@ -50,7 +50,7 @@ def preprocess_data(filepaths, variables):
     data_range[data_range == 0] = 1.0
 
     # 4. Apply Min-Max scaling
-    #data = (data - data_min) / data_range
+    data = (data - data_min) / data_range
 
     return data
 
@@ -89,17 +89,23 @@ def plot_channel_interactive(data_tensor, channel=0):
 
 print('Starting')
 
+fnamex = 'x700'
 input_channels = ['S_yz', 'T_yz', 'runoff_yz']  # Replace with your variable names
 output_channels = ['lifw_xy']  # Replace with your variable names
 
-root_dir = '/Users/irenavankova/Desktop/Ocean2/rx'
+root_dir = '/Users/irenavankova/Desktop/beb/rx'
 
-filepaths = sorted(Path(root_dir).rglob('data_annual.nc'))
+filepaths = sorted(Path(root_dir).rglob(f'data_annual_{fnamex}.nc'))
 
-data = preprocess_data(filepaths, input_channels)
+print(filepaths)
+
+data_in = preprocess_data(filepaths, input_channels)
+data_out = preprocess_data(filepaths, output_channels)
 
 print('preprocessed')
 
-data_tensor = torch.tensor(data, dtype=torch.float32)  # Shape: (N, C, H, W)
+data_tensor_in = torch.tensor(data_in, dtype=torch.float32)  # Shape: (N, C, H, W)
+plot_channel_interactive(data_tensor_in, channel=2)  # Plot the second channel (temperature)
 
-plot_channel_interactive(data_tensor, channel=2)  # Plot the second channel (temperature)
+#data_tensor_out = torch.tensor(data_out, dtype=torch.float32)  # Shape: (N, C, H, W)
+#plot_channel_interactive(data_tensor_out, channel=0)  # Plot the second channel (temperature)
