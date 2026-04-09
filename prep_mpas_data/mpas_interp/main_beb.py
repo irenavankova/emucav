@@ -24,7 +24,9 @@ zmin, zmax = -700, 0
 dz = 20
 
 buffer = 4000
-target_x = 700 * 1000
+target_x = 700
+fnamex = f'x{target_x}'
+target_x = target_x * 1000
 # target_x = xCell.max()-2000
 m2km = 1000
 
@@ -180,9 +182,12 @@ for rx in filenames:
                 print(f"Sum of the interpolated 1D field: {sum_1d/fac}")
                 sum_2d = np.nansum(projected_runoff)*(y_centers[2]-y_centers[1])*(z_centers[2]-z_centers[1]) # vertical area
                 print(f"Sum of the interpolated 2D field: {sum_2d/fac}")
-                projected_runoff = projected_runoff*sum_1d/sum_2d
-                sum_2d = np.nansum(projected_runoff)*(y_centers[2]-y_centers[1])*(z_centers[2]-z_centers[1])
-                print(f"Sum of the corrected 2D field: {sum_2d/fac}")
+                if sum_2d > 0:
+                    projected_runoff = projected_runoff*sum_1d/sum_2d
+                    sum_2d = np.nansum(projected_runoff)*(y_centers[2]-y_centers[1])*(z_centers[2]-z_centers[1])
+                    print(f"Sum of the corrected 2D field: {sum_2d/fac}")
+                else:
+                    print(f"NO RUNOFF")
 
                 data_YZ['runoff_yz'] = projected_runoff.T
 
@@ -300,7 +305,7 @@ for rx in filenames:
         if results_list_XY:
             # Combine all monthly datasets into one large dataset
             combined_ds = xarray.concat(results_list_XY, dim="time")
-            combined_ds.to_netcdf(f'{dir_nc_save}/output_data_xy.nc')
+            combined_ds.to_netcdf(f'{dir_nc_save}/output_data_xy_{fnamex}.nc')
             print("File saved successfully with XY variables:", list(combined_ds.data_vars))
         else:
             print("No XY output data were processed.")
@@ -308,7 +313,7 @@ for rx in filenames:
         if results_list_YZ:
             # Combine all monthly datasets into one large dataset
             combined_ds = xarray.concat(results_list_YZ, dim="time")
-            combined_ds.to_netcdf(f'{dir_nc_save}/input_data_yz.nc')
+            combined_ds.to_netcdf(f'{dir_nc_save}/input_data_yz_{fnamex}.nc')
             print("File saved successfully with YZ variables:", list(combined_ds.data_vars))
         else:
             print("No YZ input data were processed.")

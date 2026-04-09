@@ -4,7 +4,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # --- Configuration ---
-dir_nc_save = '/Users/irenavankova/Desktop/Ocean1'  # Update this
+#dir_nc_save = '/Users/irenavankova/Desktop/Ocean1'  # Update this
+dir_nc_save = '/Users/irenavankova/Desktop/Ocean2/rx/ra_112A'
 m2km = 1000.0  # Conversion factor
 # Adjust these limits based on your specific domain
 
@@ -28,6 +29,8 @@ print(f"Verifying data for time slice: {time_label}")
 # -----------------------------------------------------------------------------
 var_xy = 'ustar_xy'
 data_slice_xy = ds_xy[var_xy].isel(time=t_idx)
+print(np.nanmin(data_slice_xy))
+print(np.nanmax(data_slice_xy))
 
 plt.figure(figsize=(8, 6))
 plt.pcolormesh(ds_xy.x / m2km, ds_xy.y / m2km, data_slice_xy, cmap='hot_r', shading='auto')
@@ -45,6 +48,8 @@ plt.show()
 # -----------------------------------------------------------------------------
 var_yz = 'T_yz'
 data_slice_yz = ds_yz[var_yz].isel(time=t_idx)
+print(np.nanmin(data_slice_yz))
+print(np.nanmax(data_slice_yz))
 
 plt.figure(figsize=(8, 6))
 plt.pcolormesh(ds_yz.y / m2km, ds_yz.z, data_slice_yz, cmap='hot_r', shading='nearest')
@@ -61,6 +66,8 @@ plt.show()
 # -----------------------------------------------------------------------------
 if 'runoff_yz' in ds_yz:
     runoff_slice = ds_yz['runoff_yz'].isel(time=t_idx)
+    print(np.nanmin(runoff_slice))
+    print(np.nanmax(runoff_slice))
 
     plt.figure(figsize=(8, 6))
     # Note: Using the scaling logic from your original code (data / dx * dz)
