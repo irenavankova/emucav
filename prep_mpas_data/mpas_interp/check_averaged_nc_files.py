@@ -6,12 +6,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def plot_nc_files(root_dir, varxy, varyz):
+def plot_nc_files(root_dir, varxy, varyz, fnamex):
     # Find all data_annual.nc files in subdirectories
-    nc_files = sorted(Path(root_dir).rglob('data_annual.nc'))
+    nc_files = sorted(Path(root_dir).rglob(f'data_annual_{fnamex}.nc'))
 
     if not nc_files:
-        print("No 'data_annual.nc' files found.")
+        print(f"No 'data_annual_{fnamex}.nc' files found.")
         return
 
     plt.ion()  # Turn on interactive mode
@@ -74,5 +74,6 @@ def plot_nc_files(root_dir, varxy, varyz):
     plt.show()
 
 
-root_dir = '/Users/irenavankova/Desktop/Ocean2/rx/'
-plot_nc_files(root_dir, 'lifw_xy', 'runoff_yz')
+root_dir = '/Users/irenavankova/Desktop/beb/rx/'
+fnamex = 'x700'
+plot_nc_files(root_dir, 'lifw_xy', 'runoff_yz', fnamex)

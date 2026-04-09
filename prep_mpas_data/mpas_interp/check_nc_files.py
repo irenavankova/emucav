@@ -5,7 +5,7 @@ import numpy as np
 
 # --- Configuration ---
 #dir_nc_save = '/Users/irenavankova/Desktop/Ocean1'  # Update this
-dir_nc_save = '/Users/irenavankova/Desktop/Ocean2/rx/ra_112A'
+dir_nc_save = '/Users/irenavankova/Desktop/beb/rx/rd_112E'
 m2km = 1000.0  # Conversion factor
 # Adjust these limits based on your specific domain
 
@@ -14,10 +14,11 @@ ymin, ymax = 5000, 75000
 dx, dy = 2000, 2000
 zmin, zmax = -700, 0
 dz = 20
+fnamex = 'x700'
 
 # Load the combined datasets
-ds_xy = xarray.open_dataset(f'{dir_nc_save}/output_data_xy.nc')  # Update filename
-ds_yz = xarray.open_dataset(f'{dir_nc_save}/input_data_yz.nc')  # Update filename
+ds_xy = xarray.open_dataset(f'{dir_nc_save}/output_data_xy_{fnamex}.nc')  # Update filename
+ds_yz = xarray.open_dataset(f'{dir_nc_save}/input_data_yz_{fnamex}.nc')  # Update filename
 
 # Select a specific time slice to verify (e.g., the first month)
 t_idx = 0
