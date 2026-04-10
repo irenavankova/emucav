@@ -20,7 +20,7 @@ class CnnSimple(nn.Module):
             nn.MaxPool2d(kernel_size=2, stride=2),
         )
 
-        # Decoder: Upsampling from 9x9 to 108x36
+        # Decoder: Upsampling from 9x9 to 108x36 - checkerboards!!
         self.decoder_conv = nn.Sequential(
             # First Step: 9x9 -> 36x18
             # Scale H by 4, W by 2
@@ -59,12 +59,12 @@ class CnnSimple(nn.Module):
             nn.Conv2d(32, 16, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
             nn.Conv2d(16, out_channels, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True)
+            nn.ReLU(inplace=True) #!makes things either better or really bad
         )
 
     def forward(self, x):
         x = self.encoder(x)
-        x = self.decoder_upsample(x)
+        x = self.decoder_ups(x)
         return x
 
 # Test usage

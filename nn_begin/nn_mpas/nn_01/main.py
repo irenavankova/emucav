@@ -36,9 +36,12 @@ def main():
 
     indices = np.random.permutation(len(data_tensor_in))
     train_size = int(train_perc * len(data_tensor_in))
-
     train_indices = indices[:train_size]
     test_indices = indices[train_size:]
+
+    #all_indices = np.arange(0, 50)
+    #test_indices = np.array([1, 7, 13, 16, 24, 31, 32, 39, 44, 50]) - 1
+    #train_indices = np.setdiff1d(all_indices, test_indices)
 
     train_in, test_in = data_tensor_in[train_indices], data_tensor_in[test_indices]
     train_out, test_out = data_tensor_out[train_indices], data_tensor_out[test_indices]
@@ -131,34 +134,33 @@ def main():
         predicted_test = model(test_in)
 
     # Plot predicted vs actual lifw_xy for a few samples
-    num_samples_to_plot = 10  # You can change this to plot more or fewer samples
+    num_samples_to_plot = 5  # You can change this to plot more or fewer samples
     for ttest in range(2):
-        for i in range(num_samples_to_plot):
-            plt.figure(figsize=(12, 6))
+        # Create a figure with 1 row and 5 columns for actual and predicted plots
+        fig, axes = plt.subplots(num_samples_to_plot, 2, figsize=(10,10))
 
+        for i in range(num_samples_to_plot):
             if ttest == 0:
                 dat_actual = train_out[i, 0, :, :]
                 dat_pred = predicted_train[i, 0, :, :]
-                ttl = 'train'
+                ttl = 'Train'
             else:
                 dat_actual = test_out[i, 0, :, :]
                 dat_pred = predicted_test[i, 0, :, :]
-                ttl = 'test'
+                ttl = 'Test'
 
             # Plot actual lifw_xy
-            plt.subplot(1, 2, 1)
-            plt.imshow(dat_actual, cmap='magma')
-            plt.colorbar()
-            plt.title(f'{ttl}: Actual lifw_xy (Sample {i+1})')
+            im_actual = axes[i, 0].imshow(dat_actual, cmap='magma')
+            axes[i, 0].set_title(f'{ttl}: Actual (Sample {i + 1})')
+            fig.colorbar(im_actual, ax=axes[i, 0])
 
             # Plot predicted lifw_xy
-            plt.subplot(1, 2, 2)
-            plt.imshow(dat_pred, cmap='magma')
-            plt.colorbar()
-            plt.title(f'{ttl}: Predicted lifw_xy (Sample {i+1})')
+            im_pred = axes[i, 1].imshow(dat_pred, cmap='magma')
+            axes[i, 1].set_title(f'{ttl}: Predicted (Sample {i + 1})')
+            fig.colorbar(im_pred, ax=axes[i, 1])
 
-            plt.tight_layout()
-            plt.show()
+        plt.tight_layout()
+        plt.show()
 
 
 if __name__ == "__main__":
