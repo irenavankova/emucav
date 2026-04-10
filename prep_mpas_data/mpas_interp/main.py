@@ -19,12 +19,12 @@ month_init, month_end = 12, 13
 xmin, xmax = 459000, 639000
 ymin, ymax = 5000, 75000
 #dx, dy = 2000, 2000
-zmin, zmax = -700, 0
+zmin, zmax = -681, -16
 #dz = 20
 nx, ny, nz = 3*36, 36, 36
 
 buffer = 4000
-target_x = 600*1000
+target_x = 700*1000
 #target_x = xCell.max()-2000
 m2km = 1000
 
