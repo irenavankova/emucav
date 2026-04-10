@@ -21,26 +21,45 @@ class CnnSimple(nn.Module):
         )
 
         # Decoder: Upsampling from 9x9 to 108x36
-        self.decoder = nn.Sequential(
+        self.decoder_conv = nn.Sequential(
             # First Step: 9x9 -> 36x18
             # Scale H by 4, W by 2
-            nn.ConvTranspose2d(32, 16, kernel_size=(4, 2), stride=(4, 2)),
+            nn.ConvTranspose2d(32, 16, kernel_size=(2, 4), stride=(2, 4)),
             nn.BatchNorm2d(16),
             nn.ReLU(inplace=True),
 
             # Second Step: 36x18 -> 108x36
             # Scale H by 3, W by 2
-            nn.ConvTranspose2d(16, out_channels, kernel_size=(3, 2), stride=(3, 2)),
+            nn.ConvTranspose2d(16, out_channels, kernel_size=(2, 3), stride=(2, 3)),
             nn.ReLU(inplace=True)
             # Final activation (e.g., Sigmoid or Tanh) usually goes here
             # depending on your target data range.
         )
 
-        self.decoder_upsample = nn.Sequential(
-            nn.Upsample(size=(108, 36), mode='bilinear', align_corners=True),
+        self.decoder_ups = nn.Sequential(
+            # First Step: 9x9 -> 18x18 (Upsample with interpolation)
+            nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True),
             nn.Conv2d(32, 16, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
-            nn.Conv2d(16, out_channels, kernel_size=3, padding=1)
+
+            # Second Step: 18x18 -> 36x36
+            nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True),
+            nn.Conv2d(16, 16, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+
+            # Third Step: 36x36 -> 36x108 (Upsample width only)
+            nn.Upsample(size=(36, 108), mode='bilinear', align_corners=True),
+            nn.Conv2d(16, out_channels, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True)
+        )
+
+        # Decoder: Upsampling from 9x9 to 108x36 but avoiding checker board effects for the same kernel and stride sizes
+        self.decoder_upsample = nn.Sequential(
+            nn.Upsample(size=(36, 108), mode='bilinear', align_corners=True),
+            nn.Conv2d(32, 16, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(16, out_channels, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True)
         )
 
     def forward(self, x):
@@ -51,7 +70,8 @@ class CnnSimple(nn.Module):
 # Test usage
 if __name__ == "__main__":
     # 1. Initialize
-    model = CnnSimple(in_channels=3, out_channels=4)
+    dummy_input = torch.randn(2, 3, 36, 36)
+    model = CnnSimple(in_channels=dummy_input.shape[1], out_channels=dummy_input.shape[1]+1)
 
     # 2. Check Parameter Count (Optional but helpful)
     params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -59,10 +79,9 @@ if __name__ == "__main__":
 
     # 3. Test with a dummy batch
     # Tip: Use a batch size > 1 to catch issues with BatchNorm or flattening
-    dummy_input = torch.randn(2, 3, 224, 224)
     try:
         output = model(dummy_input)
-        print(f"Success! Input {dummy_input.shape} -> Output {output.shape}")
+        print(f"Input {dummy_input.shape} -> Output {output.shape}")
     except Exception as e:
         print(f"Forward pass failed: {e}")
 

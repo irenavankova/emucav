@@ -111,7 +111,10 @@ if __name__ == "__main__":
 
     fnamex = 'x700'
     input_channels = ['S_yz', 'T_yz', 'runoff_yz']  # Replace with your variable names
-    output_channels = ['lifw_xy']  # Replace with your variable names
+    output_channels = ['lifw_xy','Vbot_xy','Ubot_xy','Tbot_xy','Sbot_xy','Sbl_xy','Tbl_xy','ustar_xy']  # Replace with your variable names
+
+    #output_channels = ['lifw_xy']  # Replace with your variable names
+
 
     root_dir = '/Users/irenavankova/Desktop/beb/rx'
 
@@ -128,7 +131,9 @@ if __name__ == "__main__":
     out_channels = data_tensor_out.shape[1]
 
     print(f'Number of input channels = {in_channels}')
+    print(data_tensor_in.shape)
     print(f'Number of output channels = {out_channels}')
+    print(data_tensor_out.shape)
 
     #plot_channel_interactive(data_tensor_in, channel=2)  # Plot the second channel (temperature)
     plot_channel_interactive(data_tensor_out, channel=0)  # Plot the second channel (temperature)

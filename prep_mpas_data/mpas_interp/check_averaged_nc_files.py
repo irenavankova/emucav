@@ -27,6 +27,18 @@ def plot_nc_files(root_dir, varxy, varyz, fnamex):
             # Open the dataset
             ds = nc.Dataset(file_path)
 
+            print(f"\nChecking file: {file_path}")
+            for var_name, var in ds.variables.items():
+                # Get the data as a masked array if _FillValue is present
+                data = var[:]
+                if hasattr(var, '_FillValue'):
+                    data = np.ma.masked_equal(data, var._FillValue)
+                # Check for masked values (fill values) or NaNs
+                if np.ma.is_masked(data) and data.mask.any():
+                    print(f"  - Variable '{var_name}' contains fill/missing values")
+                elif np.any(np.isnan(data)):
+                    print(f"  - Variable '{var_name}' contains NaN values")
+
             # Extract variables
             tbot_xy = ds.variables[varxy][:]
             t_yz = ds.variables[varyz][:]
@@ -73,7 +85,8 @@ def plot_nc_files(root_dir, varxy, varyz, fnamex):
     print("Finished all files.")
     plt.show()
 
-
-root_dir = '/Users/irenavankova/Desktop/beb/rx/'
-fnamex = 'x700'
-plot_nc_files(root_dir, 'lifw_xy', 'runoff_yz', fnamex)
+# Solo usage
+if __name__ == "__main__":
+    root_dir = '/Users/irenavankova/Desktop/beb/rx/'
+    fnamex = 'x700'
+    plot_nc_files(root_dir, 'lifw_xy', 'runoff_yz', fnamex)

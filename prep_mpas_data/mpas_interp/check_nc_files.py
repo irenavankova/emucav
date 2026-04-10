@@ -5,7 +5,7 @@ import numpy as np
 
 # --- Configuration ---
 #dir_nc_save = '/Users/irenavankova/Desktop/Ocean1'  # Update this
-dir_nc_save = '/Users/irenavankova/Desktop/beb/rx/rd_112E'
+dir_nc_save = '/Users/irenavankova/Desktop/beb/rx/rd_142B'
 m2km = 1000.0  # Conversion factor
 # Adjust these limits based on your specific domain
 
