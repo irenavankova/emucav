@@ -118,16 +118,19 @@ def interpolate_yz(T, H, yCell, ssh, mask, y_target, z_target):
         mask_valid = ~np.isnan(z_column) & ~np.isnan(val_column)
 
         if np.any(mask_valid):
-            # Sort check: interp1d requires strictly increasing x-values
-            # If z_column is decreasing (depth), we flip it
+            # Sort indices for strictly increasing x
             idx_sort = np.argsort(z_column[mask_valid])
 
+            x_sorted = z_column[mask_valid][idx_sort]
+            y_sorted = val_column[mask_valid][idx_sort]
+
             f_interp = interp1d(
-                z_column[mask_valid][idx_sort],
-                val_column[mask_valid][idx_sort],
+                x_sorted,
+                y_sorted,
                 kind='linear',
                 bounds_error=False,
-                fill_value=np.nan
+                # (below_val, above_val) fills with the actual endpoint values
+                fill_value=(y_sorted[0], y_sorted[-1])
             )
 
             final_data_interp[:, i] = f_interp(z_target)

@@ -8,7 +8,7 @@ from mpas_interp_in_out import apply_masks_xy, interpolate_xy, interpolate_yz, p
 
 #--------------------------------------------------------------------------------------------------------
 # Load data
-opt_save = 1
+opt_save = 0
 
 #filenames = ['ra', 'rb', 'rc', 'rd', 're', 'rg']
 #suffixes = ['112A', '112B', '112C', '112N', '112R']
@@ -25,7 +25,7 @@ month_init, month_end = 1, 13
 xmin, xmax = 459000, 639000
 ymin, ymax = 5000, 75000
 #dx, dy = 2000, 2000
-zmin, zmax = -681, -16
+zmin, zmax = -700, 0
 #dz = 20
 nx, ny, nz = 3*36, 36, 36
 
@@ -55,7 +55,7 @@ for rx in filenames:
         rxnum = f'{rx}_{suffix}'
         print(rxnum)
 
-        dir_fig_save = f'/lcrc/group/e3sm/ac.vankova/beb/{rxnum}'
+        dir_fig_save = f'/lcrc/group/e3sm/ac.vankova/beb/rx/{rxnum}'
         dir_nc_save = dir_fig_save
 
         Path(dir_fig_save).mkdir(parents=True, exist_ok=True)
