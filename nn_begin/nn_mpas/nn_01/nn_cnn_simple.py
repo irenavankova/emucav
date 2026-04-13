@@ -9,62 +9,112 @@ class CnnSimple(nn.Module):
 
         # Encoder: Reduces 36x36 -> 18x18 -> 9x9
         self.encoder = nn.Sequential(
-            nn.Conv2d(in_channels, 16, kernel_size=3, stride=1, padding=1),
+            # BLOCK 1
+            # Cin x36x36 -> 16x36x36
+            nn.Conv2d(in_channels, 16, kernel_size=3, stride=1, padding=1, padding_mode='zeros'),
+            #nn.Conv2d(in_channels, 16, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm2d(16),
             nn.ReLU(inplace=True),
+            # 16x36x36 -> 16x18x18
             nn.MaxPool2d(kernel_size=2, stride=2),
 
-            nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1),
+            # BLOCK 2
+            # 16x18x18 -> 32x18x18
+            nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1, padding_mode='zeros'),
+            #nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm2d(32),
             nn.ReLU(inplace=True),
+            # 32x36x36 -> 32x9x9
             nn.MaxPool2d(kernel_size=2, stride=2),
         )
 
-        # Decoder: Upsampling from 9x9 to 108x36 - checkerboards!!
-        self.decoder_conv = nn.Sequential(
-            # First Step: 9x9 -> 36x18
-            # Scale H by 4, W by 2
+        # Decoder: Upsampling from 9x9 to 36x108 - checkerboards!!
+        self.decoder_convTransp = nn.Sequential(
+            # BLOCK 1
+            # 32x9x9 -> 16x18x36 Scale H by 2, W by 4
             nn.ConvTranspose2d(32, 16, kernel_size=(2, 4), stride=(2, 4)),
             nn.BatchNorm2d(16),
             nn.ReLU(inplace=True),
 
-            # Second Step: 36x18 -> 108x36
-            # Scale H by 3, W by 2
+            # BLOCK 2
+            # 16x18x36 -> Cout x36x108 Scale H by 2, W by 3
             nn.ConvTranspose2d(16, out_channels, kernel_size=(2, 3), stride=(2, 3)),
             nn.ReLU(inplace=True)
-            # Final activation (e.g., Sigmoid or Tanh) usually goes here
-            # depending on your target data range.
         )
 
-        self.decoder_ups = nn.Sequential(
-            # First Step: 9x9 -> 18x18 (Upsample with interpolation)
+        self.decoder_upsConv3 = nn.Sequential(
+            # BLOCK 1
+            # 32x9x9 -> 32x18x18 (Upsample with interpolation)
             nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True),
-            nn.Conv2d(32, 16, kernel_size=3, padding=1),
+            # 32x18x18 -> 16x18x18
+            nn.Conv2d(32, 16, kernel_size=3, padding=1, padding_mode='zeros'),
             nn.ReLU(inplace=True),
 
-            # Second Step: 18x18 -> 36x36
+            # BLOCK 2
+            # 16x18x18 -> 16x36x36
             nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True),
-            nn.Conv2d(16, 16, kernel_size=3, padding=1),
+            # 16x36x36 -> 16x36x36
+            nn.Conv2d(16, 16, kernel_size=3, padding=1, padding_mode='zeros'),
             nn.ReLU(inplace=True),
 
-            # Third Step: 36x36 -> 36x108 (Upsample width only)
+            # BLOCK 3
+            # 16x36x36 -> 16x36x108 (Upsample width only)
             nn.Upsample(size=(36, 108), mode='bilinear', align_corners=True),
-            nn.Conv2d(16, out_channels, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True)
+            # 16x36x108 -> Cout x 36x108
+            nn.Conv2d(16, out_channels, kernel_size=3, padding=1, padding_mode='zeros'),
+            #nn.SiLU(inplace=True)
+            nn.ReLU(inplace=True) #Alright but zeros out
+            #nn.Sigmoid() #Bad
         )
 
         # Decoder: Upsampling from 9x9 to 108x36 but avoiding checker board effects for the same kernel and stride sizes
-        self.decoder_upsample = nn.Sequential(
+        self.decoder_upsConv2 = nn.Sequential(
+            # BLOCK 1
+            # 32x9x9 -> 32x36x108 (Upsample with interpolation)
             nn.Upsample(size=(36, 108), mode='bilinear', align_corners=True),
-            nn.Conv2d(32, 16, kernel_size=3, padding=1),
+            # 32x36x108 -> 16x36x108
+            nn.Conv2d(32, 16, kernel_size=3, padding=1, padding_mode='zeros'),
             nn.ReLU(inplace=True),
-            nn.Conv2d(16, out_channels, kernel_size=3, padding=1),
+
+            # BLOCK 2
+            # 16x36x108 -> Cout x 36x108
+            nn.Conv2d(16, out_channels, kernel_size=3, padding=1, padding_mode='zeros'),
             nn.ReLU(inplace=True) #!makes things either better or really bad
+            #nn.Sigmoid()
         )
 
-    def forward(self, x):
+        self.decoder_pixShuff = nn.Sequential(
+            # BLOCK 1
+            # 32x9x9 -> 8x18x18 (Upsample with interpolation)
+            nn.PixelShuffle(2),
+            # 8x18x18 -> 32x18x18
+            nn.Conv2d(8, 32, kernel_size=3, padding=1, padding_mode='zeros'),
+            nn.ReLU(inplace=True),
+
+            # BLOCK 2
+            # 32x18x18 -> 8x36x36
+            nn.PixelShuffle(2),
+            nn.Conv2d(8, 8, kernel_size=3, padding=1, padding_mode='zeros'),
+            nn.ReLU(inplace=True),
+
+            # BLOCK 3
+            # 36x36 -> 36x108 (Upsample width only)
+            nn.Upsample(size=(36, 108), mode='bilinear', align_corners=True),
+            nn.Conv2d(8, out_channels, kernel_size=3, padding=1, padding_mode='zeros'),
+            nn.ReLU(inplace=True)
+        )
+
+    def forward(self, x, opt_dec='upsConv2'):
         x = self.encoder(x)
-        x = self.decoder_ups(x)
+        if opt_dec == 'convTransp':
+            x = self.decoder_convTransp(x)
+        elif opt_dec == 'upsConv3':
+            x = self.decoder_upsConv3(x)
+        elif opt_dec == 'upsConv2':
+            x = self.decoder_upsConv2(x)
+        elif opt_dec == 'pixShuff':
+            x = self.decoder_pixShuff(x)
+
         return x
 
 # Test usage

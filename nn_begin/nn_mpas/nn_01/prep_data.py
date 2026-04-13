@@ -60,7 +60,7 @@ def preprocess_data(filepaths, variables, donanmask):
     # 3. Handle division by zero:
     data_range[data_range == 0] = 1.0
 
-    # 4. Apply Min-Max scaling
+    # 4. Apply Min-Max scaling. This remaps data to 0-1 range
     data = (data - data_min) / data_range
 
     # 4. Final Cleanup: Replace NaNs with 0 in the data channels

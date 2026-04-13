@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 from pathlib import Path
-from nn_cnn_simple import CnnSimple
+#from nn_cnn_simple import CnnSimple
+#from nn_cnn_simple_gem import CnnSimple
+#from nn_cnn_simple_01 import CnnSimple
+from nn_cnn_simple_01_gem import CnnSimpleGem
 from prep_data import preprocess_data, plot_channel_interactive
 import torch
 import torch.nn as nn
@@ -14,7 +17,14 @@ def main():
     num_epochs = 10
     batch_size = 10
     train_perc = 0.8
-    ttest = 1
+    opt_dec = 'upsConv3' #'convTransp', 'upsConv2', 'upsConv3', pixShuff
+    test_ind_choice = 'even' #rand, rand_fix, even, middle, edge,
+
+    hide_channels = 16
+    k = 3
+    d = [1,2]
+
+    #ttest = 1
     #train_ind
     #validate_ind
 
@@ -34,14 +44,26 @@ def main():
     data_tensor_in = torch.tensor(data_in, dtype=torch.float32)  # Shape: (N, C, H, W)
     data_tensor_out = torch.tensor(data_out, dtype=torch.float32)  # Shape: (N, C, H, W)
 
-    indices = np.random.permutation(len(data_tensor_in))
-    train_size = int(train_perc * len(data_tensor_in))
-    train_indices = indices[:train_size]
-    test_indices = indices[train_size:]
+    if test_ind_choice == 'even':  # rand, even, middle, edge,
+        all_indices = np.arange(0, 50)
+        test_indices = np.array([1, 7, 13, 16, 24, 31, 32, 39, 44, 50]) - 1
+        train_indices = np.setdiff1d(all_indices, test_indices)
+        #train_indices = np.random.shuffle(train_indices)
+    elif test_ind_choice == 'middle':
+        all_indices = np.arange(0, 50)
+        test_indices = np.array([16, 17, 18, 19, 20, 21, 22, 23, 24, 25]) - 1
+        train_indices = np.setdiff1d(all_indices, test_indices)
+    elif test_ind_choice == 'rand':
+        indices = np.random.permutation(len(data_tensor_in))
+        train_size = int(train_perc * len(data_tensor_in))
+        train_indices = indices[:train_size]
+        test_indices = indices[train_size:]
+    elif test_ind_choice == 'rand_fix':
+        all_indices = np.arange(0, 50)
+        test_indices = np.array([28, 4, 14, 17, 26, 38, 35, 29,  5, 42]) - 1
+        train_indices = np.setdiff1d(all_indices, test_indices)
 
-    #all_indices = np.arange(0, 50)
-    #test_indices = np.array([1, 7, 13, 16, 24, 31, 32, 39, 44, 50]) - 1
-    #train_indices = np.setdiff1d(all_indices, test_indices)
+    np.random.shuffle(train_indices)
 
     train_in, test_in = data_tensor_in[train_indices], data_tensor_in[test_indices]
     train_out, test_out = data_tensor_out[train_indices], data_tensor_out[test_indices]
@@ -60,7 +82,10 @@ def main():
     print('-----Defining model')
 
     # Model, loss, optimizer
-    model = CnnSimple(in_channels=in_channels, out_channels=out_channels)
+    #model = CnnSimple(in_channels=in_channels, out_channels=out_channels)
+    model = CnnSimpleGem(in_channels=in_channels, out_channels=out_channels, hide_channels = hide_channels, k=k, d=d)
+
+
     # Check if it loads correctly
     print(model)
     criterion = nn.MSELoss()
@@ -82,7 +107,7 @@ def main():
                 inputs = train_in[i].unsqueeze(0)  # Shape: (1, C, H, W)
                 labels = train_out[i].unsqueeze(0)  # Shape: (1, C, H, W)
 
-                outputs = model(inputs)
+                outputs = model(inputs, opt_dec)
 
                 loss = criterion(outputs, labels)
                 loss.backward()  # Accumulate gradients
@@ -108,7 +133,7 @@ def main():
                     inputs = test_in[i].unsqueeze(0)  # Shape: (1, C, H, W)
                     labels = test_out[i].unsqueeze(0)  # Shape: (1, C, H, W)
 
-                    outputs = model(inputs)
+                    outputs = model(inputs, opt_dec)
 
                     loss = criterion(outputs, labels)
 
@@ -130,14 +155,27 @@ def main():
     model.eval()
     with torch.no_grad():
         # Predict lifw_xy for the test dataset
-        predicted_train = model(train_in)
-        predicted_test = model(test_in)
+        predicted_train = model(train_in, opt_dec)
+        predicted_test = model(test_in, opt_dec)
 
     # Plot predicted vs actual lifw_xy for a few samples
+
     num_samples_to_plot = 5  # You can change this to plot more or fewer samples
+
+    # Collect all data to find global min and max
+    all_data = np.concatenate([
+        train_out[:num_samples_to_plot, 0, :, :].flatten(),
+        predicted_train[:num_samples_to_plot, 0, :, :].flatten(),
+        test_out[:num_samples_to_plot, 0, :, :].flatten(),
+        predicted_test[:num_samples_to_plot, 0, :, :].flatten()
+    ])
+
+    vmin, vmax = np.min(all_data), np.max(all_data)
+    vmax = vmax/2
+
     for ttest in range(2):
         # Create a figure with 1 row and 5 columns for actual and predicted plots
-        fig, axes = plt.subplots(num_samples_to_plot, 2, figsize=(10,10))
+        fig, axes = plt.subplots(num_samples_to_plot, 2, figsize=(10, 10))
 
         for i in range(num_samples_to_plot):
             if ttest == 0:
@@ -150,12 +188,12 @@ def main():
                 ttl = 'Test'
 
             # Plot actual lifw_xy
-            im_actual = axes[i, 0].imshow(dat_actual, cmap='magma')
+            im_actual = axes[i, 0].imshow(dat_actual, cmap='magma_r', vmin=vmin, vmax=vmax)
             axes[i, 0].set_title(f'{ttl}: Actual (Sample {i + 1})')
             fig.colorbar(im_actual, ax=axes[i, 0])
 
             # Plot predicted lifw_xy
-            im_pred = axes[i, 1].imshow(dat_pred, cmap='magma')
+            im_pred = axes[i, 1].imshow(dat_pred, cmap='magma_r', vmin=vmin, vmax=vmax)
             axes[i, 1].set_title(f'{ttl}: Predicted (Sample {i + 1})')
             fig.colorbar(im_pred, ax=axes[i, 1])
 
