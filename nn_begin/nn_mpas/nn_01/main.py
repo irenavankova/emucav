@@ -32,7 +32,7 @@ def main():
     fnamex = 'x700'
     in_variables = ['S_yz', 'T_yz', 'runoff_yz']  # Replace with your variable names
     out_variables = ['lifw_xy']  # Replace with your variable names
-    root_dir = '/Users/irenavankova/Desktop/beb/rx'
+    root_dir = '/Users/ivankova/Desktop/beb/rx'
     filepaths = sorted(Path(root_dir).rglob(f'data_annual_{fnamex}.nc'))
 
     # Prepare data
