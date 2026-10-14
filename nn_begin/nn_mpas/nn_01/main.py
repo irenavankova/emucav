@@ -4,6 +4,7 @@ from pathlib import Path
 #from nn_cnn_simple_gem import CnnSimple
 #from nn_cnn_simple_01 import CnnSimple
 from nn_cnn_simple_01_gem import CnnSimpleGem
+from nn_unet_simple_01_gem import UNetSimpleGem
 from prep_data import preprocess_data, plot_channel_interactive
 import torch
 import torch.nn as nn
@@ -14,7 +15,7 @@ import matplotlib.pyplot as plt
 def main():
 
     # Define ptions data (should be in config file)
-    num_epochs = 10
+    num_epochs = 30
     batch_size = 10
     train_perc = 0.8
     opt_dec = 'upsConv3' #'convTransp', 'upsConv2', 'upsConv3', pixShuff
@@ -23,6 +24,7 @@ def main():
     hide_channels = 16
     k = 3
     d = [1,2]
+    output_size = (36, 108)
 
     #ttest = 1
     #train_ind
@@ -84,7 +86,7 @@ def main():
     # Model, loss, optimizer
     #model = CnnSimple(in_channels=in_channels, out_channels=out_channels)
     model = CnnSimpleGem(in_channels=in_channels, out_channels=out_channels, hide_channels = hide_channels, k=k, d=d)
-
+    #model = UNetSimpleGem(in_channels=in_channels, out_channels=out_channels, hide_channels = hide_channels, k=k, d=d, out_size=output_size)
 
     # Check if it loads correctly
     print(model)
