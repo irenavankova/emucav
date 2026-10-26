@@ -2,12 +2,57 @@
 from pathlib import Path
 from nn_cnn_simple_01_gem import CnnSimpleGem
 from nn_unet_simple_01_gem import UNetSimpleGem
+from nn_unet_diff_01_gem import UNetDiffGem
 from prep_data import preprocess_data, plot_channel_interactive
 import torch
 import torch.nn as nn
 import numpy as np
 import matplotlib.pyplot as plt
 from torch.utils.data import TensorDataset, DataLoader
+
+
+def sample_diffusion(model, x_cond, out_channels, out_size, T, alpha, alpha_bar, beta, num_steps=50):
+    """Generates predicted target tensor by sampling backward using DDIM for safe striding."""
+    model.eval()
+    device = x_cond.device
+    N = x_cond.shape[0]
+
+    # Move schedule tensors to the same device as x_cond/model
+    alpha = alpha.to(device)
+    alpha_bar = alpha_bar.to(device)
+    beta = beta.to(device)
+    
+    # Start from pure noise y_T ~ N(0, I)
+    y = torch.randn(N, out_channels, *out_size, device=device)
+    
+    # DDIM step sizes allow us to skip timesteps safely
+    step_stride = max(1, T // num_steps)
+    timesteps_seq = list(range(0, T, step_stride))[::-1]
+    
+    with torch.no_grad():
+        for i, t_val in enumerate(timesteps_seq):
+            t_tensor = torch.full((N,), t_val, device=device, dtype=torch.long)
+            pred_noise = model(y, x_cond, t_tensor)
+            
+            a_bar_t = alpha_bar[t_val]
+            
+            # Get alpha_bar for the next step (or 1.0 if we reached the end)
+            if i + 1 < len(timesteps_seq):
+                t_prev = timesteps_seq[i + 1]
+                a_bar_t_prev = alpha_bar[t_prev]
+            else:
+                a_bar_t_prev = torch.tensor(1.0, device=device)
+                
+            # 1. Predict the clean image (y_0) from the current noisy step
+            pred_y0 = (y - torch.sqrt(1.0 - a_bar_t) * pred_noise) / torch.sqrt(a_bar_t)
+            
+            # 2. Calculate direction pointing to the next step
+            dir_yt = torch.sqrt(1.0 - a_bar_t_prev) * pred_noise
+            
+            # 3. Combine to form the image at the previous timestep
+            y = torch.sqrt(a_bar_t_prev) * pred_y0 + dir_yt
+            
+    return y
 
 
 def main():
@@ -23,6 +68,19 @@ def main():
     k = 3
     d = [1,2]
     output_size = (36, 108)
+    lr = 1e-3
+
+    # -------------------------------------------------------------
+    # MODEL SELECTION TOGGLE
+    # Options: 'cnn_simple_gem', 'unet_simple_gem', 'diff_unet'
+    # -------------------------------------------------------------
+    model_type = 'unet_simple_gem'
+
+    if model_type == 'diff_unet':
+        lr = lr * 0.1
+        hide_channels = hide_channels * 4
+        num_epochs = num_epochs * 3
+
 
     fnamex = 'x700'
     in_variables = ['S_yz', 'T_yz', 'runoff_yz']  # Replace with your variable names
@@ -38,6 +96,16 @@ def main():
 
     data_tensor_in = torch.tensor(data_in, dtype=torch.float32)  # Shape: (N, C, H, W)
     data_tensor_out = torch.tensor(data_out, dtype=torch.float32)  # Shape: (N, C, H, W)
+
+    # Quick Standardization (Mean 0, Std 1) for stable diffusion
+    if model_type == 'diff_unet':
+        in_mean = data_tensor_in.mean(dim=(0, 2, 3), keepdim=True)
+        in_std = data_tensor_in.std(dim=(0, 2, 3), keepdim=True)
+        out_mean = data_tensor_out.mean(dim=(0, 2, 3), keepdim=True)
+        out_std = data_tensor_out.std(dim=(0, 2, 3), keepdim=True)
+        
+        data_tensor_in = (data_tensor_in - in_mean) / (in_std + 1e-6)
+        data_tensor_out = (data_tensor_out - out_mean) / (out_std + 1e-6)
 
     if test_ind_choice == 'even':  # rand, even, middle, edge,
         all_indices = np.arange(0, 50)
@@ -82,17 +150,28 @@ def main():
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
     # Define nn options
-    print('-----Defining model')
+    print(f'-----Defining model: {model_type}')
 
-    # Model, loss, optimizer
-    #model = CnnSimpleGem(in_channels=in_channels, out_channels=out_channels, hide_channels = hide_channels, k=k, d=d)
-    model = UNetSimpleGem(in_channels=in_channels, out_channels=out_channels, hide_channels = hide_channels, k=k, d=d, out_size=output_size)
+    if model_type == 'cnn_simple_gem':
+        model = CnnSimpleGem(in_channels=in_channels, out_channels=out_channels, hide_channels=hide_channels, k=k, d=d)
+    elif model_type == 'unet_simple_gem':
+        model = UNetSimpleGem(in_channels=in_channels, out_channels=out_channels, hide_channels=hide_channels, k=k, d=d, out_size=output_size)
+    elif model_type == 'diff_unet':
+        model = UNetDiffGem(in_channels=in_channels, out_channels=out_channels, hide_channels=hide_channels, k=k, d=d, out_size=output_size)
+    else:
+        raise ValueError(f"Unknown model_type '{model_type}'. Options: 'cnn_simple_gem', 'unet_simple_gem', 'diff_unet'")
 
     # Check if it loads correctly
     print(model)
     criterion = nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-    #scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=3)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+
+    # Setup diffusion parameters if model_type is 'diff_unet'
+    if model_type == 'diff_unet':
+        T = 1000
+        beta = torch.linspace(1e-4, 0.02, T)
+        alpha = 1.0 - beta
+        alpha_bar = torch.cumprod(alpha, dim=0)
 
     # Train network
     print('-----Training network')
@@ -105,13 +184,31 @@ def main():
         for inputs, labels in train_loader:
             optimizer.zero_grad()  
             
-            outputs = model(inputs, opt_dec)
-            loss = criterion(outputs, labels)
-            
-            loss.backward()  
-            optimizer.step()  
+            if model_type == 'diff_unet':
+                t = torch.randint(0, T, (inputs.size(0),), device=labels.device)
+                noise = torch.randn_like(labels)
+                a_bar_t = alpha_bar.to(labels.device)[t].view(-1, 1, 1, 1)
+                y_t = torch.sqrt(a_bar_t) * labels + torch.sqrt(1.0 - a_bar_t) * noise
+                
+                outputs = model(y_t, inputs, t)
+                loss = criterion(outputs, noise) 
+                
+                loss.backward()  
+                # ADD GRADIENT CLIPPING FOR STABILITY
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                optimizer.step()  
 
-            running_loss += loss.item() * inputs.size(0)
+                # Log the actual noise loss (smooth and stable)
+                running_loss += loss.item() * inputs.size(0)
+
+            else:
+                outputs = model(inputs, opt_dec)
+                loss = criterion(outputs, labels)
+                
+                loss.backward()  
+                optimizer.step()  
+
+                running_loss += loss.item() * inputs.size(0)
 
         avg_loss = running_loss / len(train_in)
 
@@ -121,8 +218,17 @@ def main():
         with torch.no_grad():
             # Iterate directly over the test_loader
             for inputs, labels in test_loader:
-                outputs = model(inputs, opt_dec)
-                loss = criterion(outputs, labels)
+                if model_type == 'diff_unet':
+                    t = torch.randint(0, T, (inputs.size(0),), device=labels.device)
+                    noise = torch.randn_like(labels)
+                    a_bar_t = alpha_bar[t].view(-1, 1, 1, 1)
+                    y_t = torch.sqrt(a_bar_t) * labels + torch.sqrt(1.0 - a_bar_t) * noise
+                    outputs = model(y_t, inputs, t)
+                    
+                    loss = criterion(outputs, noise)
+                else:
+                    outputs = model(inputs, opt_dec)
+                    loss = criterion(outputs, labels)
 
                 val_loss += loss.item() * inputs.size(0)
 
@@ -137,14 +243,28 @@ def main():
 
     with torch.no_grad():
         # Predict lifw_xy ONLY for the samples we intend to plot (prevents OOM)
-        predicted_train = model(train_in[:num_samples_to_plot], opt_dec)
-        predicted_test = model(test_in[:num_samples_to_plot], opt_dec)
+        if model_type == 'diff_unet':
+            print("Sampling reverse diffusion process for test/train predictions...")
+            predicted_train = sample_diffusion(model, train_in[:num_samples_to_plot], out_channels, output_size, T, alpha, alpha_bar, beta, num_steps=50)
+            predicted_test = sample_diffusion(model, test_in[:num_samples_to_plot], out_channels, output_size, T, alpha, alpha_bar, beta, num_steps=50)
+            
+            # UN-NORMALIZE BACK TO PHYSICAL UNITS FOR DIFFUSION PLOTTING
+            predicted_train = (predicted_train * out_std.to(predicted_train.device)) + out_mean.to(predicted_train.device)
+            predicted_test = (predicted_test * out_std.to(predicted_test.device)) + out_mean.to(predicted_test.device)
+            plot_train_out = (train_out[:num_samples_to_plot] * out_std.to(train_out.device)) + out_mean.to(train_out.device)
+            plot_test_out = (test_out[:num_samples_to_plot] * out_std.to(test_out.device)) + out_mean.to(test_out.device)
+        else:
+            predicted_train = model(train_in[:num_samples_to_plot], opt_dec)
+            predicted_test = model(test_in[:num_samples_to_plot], opt_dec)
+            # Standard models don't use standardization in this script, so we just pass data through
+            plot_train_out = train_out[:num_samples_to_plot]
+            plot_test_out = test_out[:num_samples_to_plot]
 
     # Collect all data to find global min and max (safely convert to numpy first)
     all_data = np.concatenate([
-        train_out[:num_samples_to_plot, 0, :, :].cpu().numpy().flatten(),
+        plot_train_out[:, 0, :, :].cpu().numpy().flatten(),
         predicted_train[:, 0, :, :].cpu().numpy().flatten(),
-        test_out[:num_samples_to_plot, 0, :, :].cpu().numpy().flatten(),
+        plot_test_out[:, 0, :, :].cpu().numpy().flatten(),
         predicted_test[:, 0, :, :].cpu().numpy().flatten()
     ])
 
@@ -157,11 +277,11 @@ def main():
 
         for i in range(num_samples_to_plot):
             if ttest == 0:
-                dat_actual = train_out[i, 0, :, :].cpu().numpy()
+                dat_actual = plot_train_out[i, 0, :, :].cpu().numpy()
                 dat_pred = predicted_train[i, 0, :, :].cpu().numpy()
                 ttl = 'Train'
             else:
-                dat_actual = test_out[i, 0, :, :].cpu().numpy()
+                dat_actual = plot_test_out[i, 0, :, :].cpu().numpy()
                 dat_pred = predicted_test[i, 0, :, :].cpu().numpy()
                 ttl = 'Test'
 
