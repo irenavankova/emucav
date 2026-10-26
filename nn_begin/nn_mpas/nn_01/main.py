@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
 from pathlib import Path
-#from nn_cnn_simple import CnnSimple
-#from nn_cnn_simple_gem import CnnSimple
-#from nn_cnn_simple_01 import CnnSimple
 from nn_cnn_simple_01_gem import CnnSimpleGem
 from nn_unet_simple_01_gem import UNetSimpleGem
 from prep_data import preprocess_data, plot_channel_interactive
@@ -10,6 +7,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 import matplotlib.pyplot as plt
+from torch.utils.data import TensorDataset, DataLoader
 
 
 def main():
@@ -25,11 +23,6 @@ def main():
     k = 3
     d = [1,2]
     output_size = (36, 108)
-
-    #ttest = 1
-    #train_ind
-    #validate_ind
-
 
     fnamex = 'x700'
     in_variables = ['S_yz', 'T_yz', 'runoff_yz']  # Replace with your variable names
@@ -80,13 +73,20 @@ def main():
     print(f'Number of input channels = {in_channels}')
     print(f'Number of output channels = {out_channels}')
 
+    # Create TensorDatasets and DataLoaders
+    train_dataset = TensorDataset(train_in, train_out)
+    test_dataset = TensorDataset(test_in, test_out)
+
+    # shuffle=True ensures the data is randomized at the start of EVERY epoch
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+
     # Define nn options
     print('-----Defining model')
 
     # Model, loss, optimizer
-    #model = CnnSimple(in_channels=in_channels, out_channels=out_channels)
-    model = CnnSimpleGem(in_channels=in_channels, out_channels=out_channels, hide_channels = hide_channels, k=k, d=d)
-    #model = UNetSimpleGem(in_channels=in_channels, out_channels=out_channels, hide_channels = hide_channels, k=k, d=d, out_size=output_size)
+    #model = CnnSimpleGem(in_channels=in_channels, out_channels=out_channels, hide_channels = hide_channels, k=k, d=d)
+    model = UNetSimpleGem(in_channels=in_channels, out_channels=out_channels, hide_channels = hide_channels, k=k, d=d, out_size=output_size)
 
     # Check if it loads correctly
     print(model)
@@ -99,94 +99,70 @@ def main():
 
     for epoch in range(num_epochs):
         running_loss = 0.0
-        model.train()  # Set model to training mode
+        model.train()  
 
-        for j in range(0, len(train_in), batch_size):
-            optimizer.zero_grad()  # Zero gradients at the start of each mini-batch
+        # Iterate directly over the train_loader
+        for inputs, labels in train_loader:
+            optimizer.zero_grad()  
+            
+            outputs = model(inputs, opt_dec)
+            loss = criterion(outputs, labels)
+            
+            loss.backward()  
+            optimizer.step()  
 
-            # Iterate over the next 10 images
-            for i in range(j, min(j + 10, len(train_in))):
-                inputs = train_in[i].unsqueeze(0)  # Shape: (1, C, H, W)
-                labels = train_out[i].unsqueeze(0)  # Shape: (1, C, H, W)
+            running_loss += loss.item() * inputs.size(0)
 
-                outputs = model(inputs, opt_dec)
-
-                loss = criterion(outputs, labels)
-                loss.backward()  # Accumulate gradients
-
-                running_loss += loss.item()
-                #print(f'Instantaneous Loss: {loss.item()}')
-
-            optimizer.step()  # Update weights after every 10 images
-
-        # Print statistics
         avg_loss = running_loss / len(train_in)
-        #print(f'Epoch {epoch + 1}, Average Loss: {avg_loss}')
 
-        #Check validation loss
+        # Check validation loss
         val_loss = 0.0
-        model.eval()  # Set model to evaluation mode
+        model.eval()  
         with torch.no_grad():
-            for j in range(0, len(test_in), batch_size):
-                optimizer.zero_grad()  # Zero gradients at the start of each mini-batch
+            # Iterate directly over the test_loader
+            for inputs, labels in test_loader:
+                outputs = model(inputs, opt_dec)
+                loss = criterion(outputs, labels)
 
-                # Iterate over the next 10 images
-                for i in range(j, min(j + 10, len(test_in))):
-                    inputs = test_in[i].unsqueeze(0)  # Shape: (1, C, H, W)
-                    labels = test_out[i].unsqueeze(0)  # Shape: (1, C, H, W)
+                val_loss += loss.item() * inputs.size(0)
 
-                    outputs = model(inputs, opt_dec)
-
-                    loss = criterion(outputs, labels)
-
-                    val_loss += loss.item()
-                    # print(f'Instantaneous Loss: {loss.item()}')
-
-                optimizer.step()  # Update weights after every 10 images
-
-            # Print statistics
             val_loss = val_loss / len(test_in)
-            #print(f'Epoch {epoch + 1}, Validation Loss: {val_loss}')
-            #print(f'Epoch {epoch + 1}, Average Loss: {avg_loss}, Validation Loss: {val_loss}')
             print(f'Epoch {epoch + 1:>3}, Average Loss: {avg_loss:>10.6f}, Validation Loss: {val_loss:>10.6f}')
 
     # Evaluate network's performance
     print('-----Evaluating network: plots')
 
-    # After training, evaluate the model on the test dataset and plot predictions
     model.eval()
-    with torch.no_grad():
-        # Predict lifw_xy for the test dataset
-        predicted_train = model(train_in, opt_dec)
-        predicted_test = model(test_in, opt_dec)
-
-    # Plot predicted vs actual lifw_xy for a few samples
-
     num_samples_to_plot = 5  # You can change this to plot more or fewer samples
 
-    # Collect all data to find global min and max
+    with torch.no_grad():
+        # Predict lifw_xy ONLY for the samples we intend to plot (prevents OOM)
+        predicted_train = model(train_in[:num_samples_to_plot], opt_dec)
+        predicted_test = model(test_in[:num_samples_to_plot], opt_dec)
+
+    # Collect all data to find global min and max (safely convert to numpy first)
     all_data = np.concatenate([
-        train_out[:num_samples_to_plot, 0, :, :].flatten(),
-        predicted_train[:num_samples_to_plot, 0, :, :].flatten(),
-        test_out[:num_samples_to_plot, 0, :, :].flatten(),
-        predicted_test[:num_samples_to_plot, 0, :, :].flatten()
+        train_out[:num_samples_to_plot, 0, :, :].cpu().numpy().flatten(),
+        predicted_train[:, 0, :, :].cpu().numpy().flatten(),
+        test_out[:num_samples_to_plot, 0, :, :].cpu().numpy().flatten(),
+        predicted_test[:, 0, :, :].cpu().numpy().flatten()
     ])
 
     vmin, vmax = np.min(all_data), np.max(all_data)
-    vmax = vmax/2
+    vmax = vmax / 2
 
     for ttest in range(2):
-        # Create a figure with 1 row and 5 columns for actual and predicted plots
+        # Create a figure with num_samples_to_plot rows and 2 columns for actual and predicted plots
         fig, axes = plt.subplots(num_samples_to_plot, 2, figsize=(10, 10))
 
         for i in range(num_samples_to_plot):
             if ttest == 0:
-                dat_actual = train_out[i, 0, :, :]
-                dat_pred = predicted_train[i, 0, :, :]
+                dat_actual = train_out[i, 0, :, :].cpu().numpy()
+                dat_pred = predicted_train[i, 0, :, :].cpu().numpy()
                 ttl = 'Train'
             else:
-                dat_actual = test_out[i, 0, :, :]
-                dat_pred = predicted_test[i, 0, :, :]
+                dat_actual = test_out[i, 0, :, :].cpu().numpy()
+                dat_pred = predicted_test[i, 0, :, :].cpu().numpy()
                 ttl = 'Test'
 
             # Plot actual lifw_xy
