@@ -148,6 +148,50 @@ class UNetDiffGem(nn.Module):
         return out
 
 
+def sample_diffusion(model, x_cond, out_channels, out_size, T, alpha, alpha_bar, beta, num_steps=50):
+    """Generates predicted target tensor by sampling backward using DDIM for safe striding."""
+    model.eval()
+    device = x_cond.device
+    N = x_cond.shape[0]
+
+    # Move schedule tensors to the same device as x_cond/model
+    alpha = alpha.to(device)
+    alpha_bar = alpha_bar.to(device)
+    beta = beta.to(device)
+    
+    # Start from pure noise y_T ~ N(0, I)
+    y = torch.randn(N, out_channels, *out_size, device=device)
+    
+    # DDIM step sizes allow us to skip timesteps safely
+    step_stride = max(1, T // num_steps)
+    timesteps_seq = list(range(0, T, step_stride))[::-1]
+    
+    with torch.no_grad():
+        for i, t_val in enumerate(timesteps_seq):
+            t_tensor = torch.full((N,), t_val, device=device, dtype=torch.long)
+            pred_noise = model(y, x_cond, t_tensor)
+            
+            a_bar_t = alpha_bar[t_val]
+            
+            # Get alpha_bar for the next step (or 1.0 if we reached the end)
+            if i + 1 < len(timesteps_seq):
+                t_prev = timesteps_seq[i + 1]
+                a_bar_t_prev = alpha_bar[t_prev]
+            else:
+                a_bar_t_prev = torch.tensor(1.0, device=device)
+                
+            # 1. Predict the clean image (y_0) from the current noisy step
+            pred_y0 = (y - torch.sqrt(1.0 - a_bar_t) * pred_noise) / torch.sqrt(a_bar_t)
+            
+            # 2. Calculate direction pointing to the next step
+            dir_yt = torch.sqrt(1.0 - a_bar_t_prev) * pred_noise
+            
+            # 3. Combine to form the image at the previous timestep
+            y = torch.sqrt(a_bar_t_prev) * pred_y0 + dir_yt
+            
+    return y
+
+
 if __name__ == "__main__":
     k = 3
     d = [1, 2]
